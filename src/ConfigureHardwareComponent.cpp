@@ -26,6 +26,10 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	okButton.setTopLeftPosition(getWidth() / 2 - okButton.getWidth() / 2, 320);
 	addAndMakeVisible(okButton);
 
+	// Create input filters once for reuse
+	auto numericInputFilter = new TextEditor::LengthAndCharacterRestriction(10, "1234567890");
+	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
+
 #ifdef JUCE_WINDOWS
 	hardwareInterfaceSelector.setName("Hardware Interface");
 	hardwareInterfaceSelector.setTextWhenNothingSelected("Select Hardware Interface");
@@ -72,12 +76,11 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	};
 	addAndMakeVisible(hardwareInterfaceSelector);
 
-	auto inputFilter = new TextEditor::LengthAndCharacterRestriction(10, "1234567890");
 	touCANSerialEditor.setName("TouCAN Serial Number");
 	touCANSerialEditor.setText(isobus::to_string(std::static_pointer_cast<isobus::TouCANPlugin>(parentCANDrivers.at(2))->get_serial_number()));
 	touCANSerialEditor.setSize(getWidth() - 20, 30);
 	touCANSerialEditor.setTopLeftPosition(10, 140);
-	touCANSerialEditor.setInputFilter(inputFilter, true);
+	touCANSerialEditor.setInputFilter(numericInputFilter, true);
 	addChildComponent(touCANSerialEditor);
 
 	// UDP Server IP Editor
@@ -91,7 +94,6 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	addChildComponent(udpServerIPEditor);
 
 	// UDP Server Port Editor
-	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
 	udpServerPortEditor.setName("UDP Server Port");
 	if (parentCANDrivers.size() > 4)
 	{
@@ -119,7 +121,6 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	addAndMakeVisible(udpServerIPEditor);
 
 	// UDP Server Port Editor
-	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
 	udpServerPortEditor.setName("UDP Server Port");
 	if (parentCANDrivers.size() > 1)
 	{
@@ -173,7 +174,6 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	addChildComponent(udpServerIPEditor);
 
 	// UDP Server Port Editor
-	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
 	udpServerPortEditor.setName("UDP Server Port");
 	if (parentCANDrivers.size() > 1)
 	{

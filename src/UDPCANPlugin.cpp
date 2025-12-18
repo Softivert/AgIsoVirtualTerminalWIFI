@@ -5,6 +5,7 @@
 *******************************************************************************/
 #include "UDPCANPlugin.hpp"
 #include "isobus/isobus/can_stack_logger.hpp"
+#include "isobus/utility/system_timing.hpp"
 #include <cstring>
 #include <chrono>
 
@@ -19,7 +20,11 @@ namespace isobus
 	  serverIP(serverIP), serverPort(serverPort), socketFD(-1), isRunning(false), isOpen(false)
 	{
 #ifdef _WIN32
-		WSAStartup(MAKEWORD(2, 2), &wsaData);
+		int wsaResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		if (wsaResult != 0)
+		{
+			CANStackLogger::error("[UDP CAN Plugin] WSAStartup failed with error: " + std::to_string(wsaResult));
+		}
 #endif
 	}
 
@@ -178,7 +183,7 @@ namespace isobus
 
 				frame.isExtendedFrame = (frame.identifier > 0x7FF);
 				frame.channel = 0;
-				frame.timestamp_us = 0; // Could add timestamp if needed
+				frame.timestamp_us = isobus::SystemTiming::get_timestamp_us();
 
 				// Push frame to queue
 				{
@@ -195,18 +200,23 @@ namespace isobus
 					// Real error occurred
 					std::this_thread::sleep_for(std::chrono::milliseconds(1));
 				}
+				else
+				{
+					// No data available, sleep briefly
+					std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				}
 #else
 				if (errno != EAGAIN && errno != EWOULDBLOCK)
 				{
 					// Real error occurred
 					std::this_thread::sleep_for(std::chrono::milliseconds(1));
 				}
-#endif
 				else
 				{
 					// No data available, sleep briefly
 					std::this_thread::sleep_for(std::chrono::milliseconds(1));
 				}
+#endif
 			}
 		}
 	}
