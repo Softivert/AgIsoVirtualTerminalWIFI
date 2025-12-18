@@ -72,6 +72,7 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	};
 	addAndMakeVisible(hardwareInterfaceSelector);
 
+	// TextEditor takes ownership of the input filter
 	auto inputFilter = new TextEditor::LengthAndCharacterRestriction(10, "1234567890");
 	touCANSerialEditor.setName("TouCAN Serial Number");
 	touCANSerialEditor.setText(isobus::to_string(std::static_pointer_cast<isobus::TouCANPlugin>(parentCANDrivers.at(2))->get_serial_number()));
@@ -95,6 +96,7 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	addChildComponent(udpServerIPEditor);
 
 	// UDP Server Port Editor
+	// TextEditor takes ownership of the input filter
 	auto portFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
 	udpServerPortEditor.setName("UDP Server Port");
 	if (parentCANDrivers.size() > 4 && parentCANDrivers.at(4) != nullptr)
@@ -165,6 +167,7 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	addChildComponent(udpServerIPEditor);
 
 	// UDP Server Port Editor
+	// TextEditor takes ownership of the input filter
 	auto portFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
 	udpServerPortEditor.setName("UDP Server Port");
 	if (parentCANDrivers.size() > 1 && parentCANDrivers.at(1) != nullptr)

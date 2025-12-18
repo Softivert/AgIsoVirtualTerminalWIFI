@@ -191,19 +191,21 @@ void UDPCANPlugin::receive_thread_function()
 
 		if (bytesRead == sizeof(CanFrame))
 		{
-			CanFrame *frame = reinterpret_cast<CanFrame *>(buffer);
+			// Use memcpy to safely extract frame data without alignment issues
+			CanFrame frame;
+			std::memcpy(&frame, buffer, sizeof(CanFrame));
 			
 			isobus::CANMessageFrame canFrame;
-			canFrame.identifier = frame->can_id & 0x1FFFFFFF; // Mask out flags
-			canFrame.isExtendedFrame = (frame->can_id & 0x80000000) != 0; // CAN_EFF_FLAG
-			canFrame.dataLength = frame->can_dlc;
+			canFrame.identifier = frame.can_id & 0x1FFFFFFF; // Mask out flags
+			canFrame.isExtendedFrame = (frame.can_id & 0x80000000) != 0; // CAN_EFF_FLAG
+			canFrame.dataLength = frame.can_dlc;
 			
 			if (canFrame.dataLength > 8)
 			{
 				canFrame.dataLength = 8;
 			}
 
-			std::memcpy(canFrame.data, frame->data, canFrame.dataLength);
+			std::memcpy(canFrame.data, frame.data, canFrame.dataLength);
 			canFrame.timestamp_us = juce::Time::currentTimeMillis() * 1000; // Convert to microseconds
 
 			juce::ScopedLock lock(frameLock);

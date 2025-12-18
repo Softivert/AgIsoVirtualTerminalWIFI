@@ -76,7 +76,7 @@ private:
 		std::uint8_t __res0;  ///< Reserved
 		std::uint8_t __res1;  ///< Reserved
 		std::uint8_t data[8]; ///< CAN frame data
-	};
+	} __attribute__((packed));
 
 	/// @brief Thread function for receiving frames
 	void receive_thread_function();
