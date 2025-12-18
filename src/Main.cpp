@@ -53,13 +53,11 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
 	Settings settings;
 	if (!settings.load_settings())
 	{
-		{
-			isobus::CANStackLogger::info("Config file not found, using defaults.");
+		isobus::CANStackLogger::info("Config file not found, using defaults.");
 #ifdef JUCE_LINUX
-			std::static_pointer_cast<isobus::SocketCANInterface>(canDrivers.at(0))->set_name("can0");
-			isobus::CANStackLogger::warn("Socket CAN interface name not yet configured. Using default of \"can0\"");
+		std::static_pointer_cast<isobus::SocketCANInterface>(canDrivers.at(0))->set_name("can0");
+		isobus::CANStackLogger::warn("Socket CAN interface name not yet configured. Using default of \"can0\"");
 #endif
-		}
 	}
 	else
 	{
@@ -74,10 +72,7 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
 		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_ip(settings.udp_server_ip());
 		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_port(settings.udp_server_port());
 #endif
-	}
 
-	if (settings.load_settings())
-	{
 		if (0 == vtNumberCmdLineArg)
 		{
 			// no command line argument provided -> use the saved setting
