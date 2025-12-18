@@ -9,6 +9,7 @@
 #include "JuceManagedWorkingSetCache.hpp"
 #include "Main.hpp"
 #include "ShortcutsWindow.hpp"
+#include "UDPCANPlugin.hpp"
 #include "isobus/utility/system_timing.hpp"
 
 #include "SoftKeyMaskRenderAreaComponent.hpp"
@@ -1741,8 +1742,27 @@ void ServerMainComponent::save_settings()
 
 #ifdef JUCE_WINDOWS
 		hardwareSettings.setProperty("TouCANSerial", static_cast<int>(std::static_pointer_cast<isobus::TouCANPlugin>(parentCANDrivers.at(2))->get_serial_number()), nullptr);
+		// Save UDP CAN settings (index 4 on Windows)
+		if (parentCANDrivers.size() > 4 && parentCANDrivers.at(4) != nullptr)
+		{
+			hardwareSettings.setProperty("UDP_Server_IP", String(std::static_pointer_cast<UDPCANPlugin>(parentCANDrivers.at(4))->get_server_ip()), nullptr);
+			hardwareSettings.setProperty("UDP_Server_Port", std::static_pointer_cast<UDPCANPlugin>(parentCANDrivers.at(4))->get_server_port(), nullptr);
+		}
 #elif JUCE_LINUX
 		hardwareSettings.setProperty("SocketCANInterface", String(std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->get_device_name()), nullptr);
+		// Save UDP CAN settings (index 1 on Linux)
+		if (parentCANDrivers.size() > 1 && parentCANDrivers.at(1) != nullptr)
+		{
+			hardwareSettings.setProperty("UDP_Server_IP", String(std::static_pointer_cast<UDPCANPlugin>(parentCANDrivers.at(1))->get_server_ip()), nullptr);
+			hardwareSettings.setProperty("UDP_Server_Port", std::static_pointer_cast<UDPCANPlugin>(parentCANDrivers.at(1))->get_server_port(), nullptr);
+		}
+#elif JUCE_MAC
+		// Save UDP CAN settings (index 1 on Mac)
+		if (parentCANDrivers.size() > 1 && parentCANDrivers.at(1) != nullptr)
+		{
+			hardwareSettings.setProperty("UDP_Server_IP", String(std::static_pointer_cast<UDPCANPlugin>(parentCANDrivers.at(1))->get_server_ip()), nullptr);
+			hardwareSettings.setProperty("UDP_Server_Port", std::static_pointer_cast<UDPCANPlugin>(parentCANDrivers.at(1))->get_server_port(), nullptr);
+		}
 #endif
 
 		if (0xFFFFFFFF != hardwareDriverIndex)
