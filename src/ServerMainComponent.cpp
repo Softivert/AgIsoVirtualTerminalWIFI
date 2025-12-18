@@ -3,13 +3,20 @@
 ** @author     Adrian Del Grosso
 ** @copyright  The Open-Agriculture Developers
 *******************************************************************************/
+// Include UDPCANPlugin.hpp first on Windows to ensure winsock2.h is included before windows.h
+#ifdef _WIN32
+#include "UDPCANPlugin.hpp"
+#endif
+
 #include "ServerMainComponent.hpp"
 
 #include "AlarmMaskAudio.h"
 #include "JuceManagedWorkingSetCache.hpp"
 #include "Main.hpp"
 #include "ShortcutsWindow.hpp"
+#ifndef _WIN32
 #include "UDPCANPlugin.hpp"
+#endif
 #include "isobus/utility/system_timing.hpp"
 
 #include "SoftKeyMaskRenderAreaComponent.hpp"

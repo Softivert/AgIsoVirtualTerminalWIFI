@@ -3,11 +3,18 @@
 ** @author     Adrian Del Grosso
 ** @copyright  The Open-Agriculture Developers
 *******************************************************************************/
+// Include UDPCANPlugin.hpp first on Windows to ensure winsock2.h is included before windows.h
+#ifdef _WIN32
+#include "UDPCANPlugin.hpp"
+#endif
+
 #include "isobus/hardware_integration/available_can_drivers.hpp"
 
 #include "Main.hpp"
 #include "Settings.hpp"
+#ifndef _WIN32
 #include "UDPCANPlugin.hpp"
+#endif
 #include "git.h"
 
 AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
