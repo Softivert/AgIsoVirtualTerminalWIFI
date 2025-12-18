@@ -254,4 +254,9 @@ namespace isobus
 	{
 		return serverPort;
 	}
+
+	std::uint8_t UDPCANPlugin::get_number_of_channels() const
+	{
+		return 1;
+	}
 }

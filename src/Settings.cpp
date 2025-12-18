@@ -60,7 +60,7 @@ bool Settings::load_settings()
 						}
 						if (!child.getProperty("UDP_Server_IP").isVoid())
 						{
-							m_udpServerIP = static_cast<String>(child.getProperty("UDP_Server_IP")).toStdString();
+							m_udpServerIP = child.getProperty("UDP_Server_IP").toString().toStdString();
 						}
 						if (!child.getProperty("UDP_Server_Port").isVoid())
 						{

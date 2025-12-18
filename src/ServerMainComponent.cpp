@@ -1703,7 +1703,7 @@ void ServerMainComponent::check_load_settings(std::shared_ptr<ValueTree> setting
 #elif JUCE_LINUX
 			if (!child.getProperty("SocketCANInterface").isVoid())
 			{
-				std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->set_name(static_cast<String>(child.getProperty("SocketCANInterface")).toStdString());
+				std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->set_name(child.getProperty("SocketCANInterface").toString().toStdString());
 				isobus::CANStackLogger::info("Using Socket CAN interface name of: " + std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->get_device_name());
 			}
 			else
@@ -1716,7 +1716,7 @@ void ServerMainComponent::check_load_settings(std::shared_ptr<ValueTree> setting
 			// Load UDP CAN settings
 			if (!child.getProperty("UDP_Server_IP").isVoid() && !child.getProperty("UDP_Server_Port").isVoid())
 			{
-				std::string udpIP = static_cast<String>(child.getProperty("UDP_Server_IP")).toStdString();
+				std::string udpIP = child.getProperty("UDP_Server_IP").toString().toStdString();
 				int udpPort = static_cast<int>(child.getProperty("UDP_Server_Port"));
 
 #ifdef JUCE_WINDOWS
