@@ -7,6 +7,7 @@
 
 #include "ConfigureHardwareWindow.hpp"
 #include "ServerMainComponent.hpp"
+#include "UDPCANPlugin.hpp"
 #include "isobus/isobus/can_stack_logger.hpp"
 #include "isobus/utility/to_string.hpp"
 
@@ -20,9 +21,9 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
   okButton("OK"),
   parentCANDrivers(canDrivers)
 {
-	setSize(400, 280);
+	setSize(400, 380);
 	okButton.setSize(100, 30);
-	okButton.setTopLeftPosition(getWidth() / 2 - okButton.getWidth() / 2, 200);
+	okButton.setTopLeftPosition(getWidth() / 2 - okButton.getWidth() / 2, 320);
 	addAndMakeVisible(okButton);
 
 #ifdef JUCE_WINDOWS
@@ -30,9 +31,9 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	hardwareInterfaceSelector.setTextWhenNothingSelected("Select Hardware Interface");
 
 #ifdef ISOBUS_WINDOWSINNOMAKERUSB2CAN_AVAILABLE
-	hardwareInterfaceSelector.addItemList({ "PEAK PCAN USB", "Innomaker2CAN", "TouCAN", "SysTec" }, 1);
+	hardwareInterfaceSelector.addItemList({ "PEAK PCAN USB", "Innomaker2CAN", "TouCAN", "SysTec", "UDP CAN" }, 1);
 #else
-	hardwareInterfaceSelector.addItemList({ "PEAK PCAN USB", "Innomaker2CAN (not supported with mingw)", "TouCAN", "SysTec" }, 1);
+	hardwareInterfaceSelector.addItemList({ "PEAK PCAN USB", "Innomaker2CAN (not supported with mingw)", "TouCAN", "SysTec", "UDP CAN" }, 1);
 #endif
 	int selectedID = 1;
 
@@ -52,10 +53,20 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 		if (3 == hardwareInterfaceSelector.getSelectedId())
 		{
 			touCANSerialEditor.setVisible(true);
+			udpServerIPEditor.setVisible(false);
+			udpServerPortEditor.setVisible(false);
+		}
+		else if (5 == hardwareInterfaceSelector.getSelectedId())
+		{
+			touCANSerialEditor.setVisible(false);
+			udpServerIPEditor.setVisible(true);
+			udpServerPortEditor.setVisible(true);
 		}
 		else
 		{
 			touCANSerialEditor.setVisible(false);
+			udpServerIPEditor.setVisible(false);
+			udpServerPortEditor.setVisible(false);
 		}
 		repaint();
 	};
@@ -68,12 +79,78 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 	touCANSerialEditor.setTopLeftPosition(10, 140);
 	touCANSerialEditor.setInputFilter(inputFilter, true);
 	addChildComponent(touCANSerialEditor);
+
+	// UDP Server IP Editor
+	udpServerIPEditor.setName("UDP Server IP");
+	if (parentCANDrivers.size() > 4)
+	{
+		udpServerIPEditor.setText(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->get_server_ip());
+	}
+	udpServerIPEditor.setSize(getWidth() - 20, 30);
+	udpServerIPEditor.setTopLeftPosition(10, 140);
+	addChildComponent(udpServerIPEditor);
+
+	// UDP Server Port Editor
+	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
+	udpServerPortEditor.setName("UDP Server Port");
+	if (parentCANDrivers.size() > 4)
+	{
+		udpServerPortEditor.setText(isobus::to_string(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->get_server_port()));
+	}
+	udpServerPortEditor.setSize(getWidth() - 20, 30);
+	udpServerPortEditor.setTopLeftPosition(10, 200);
+	udpServerPortEditor.setInputFilter(portInputFilter, true);
+	addChildComponent(udpServerPortEditor);
 #elif JUCE_LINUX
 	socketCANNameEditor.setName("SocketCAN Interface Name");
 	socketCANNameEditor.setText(std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->get_device_name());
 	socketCANNameEditor.setSize(getWidth() - 20, 30);
 	socketCANNameEditor.setTopLeftPosition(10, 80);
 	addAndMakeVisible(socketCANNameEditor);
+
+	// UDP Server IP Editor
+	udpServerIPEditor.setName("UDP Server IP");
+	if (parentCANDrivers.size() > 1)
+	{
+		udpServerIPEditor.setText(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_ip());
+	}
+	udpServerIPEditor.setSize(getWidth() - 20, 30);
+	udpServerIPEditor.setTopLeftPosition(10, 140);
+	addAndMakeVisible(udpServerIPEditor);
+
+	// UDP Server Port Editor
+	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
+	udpServerPortEditor.setName("UDP Server Port");
+	if (parentCANDrivers.size() > 1)
+	{
+		udpServerPortEditor.setText(isobus::to_string(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_port()));
+	}
+	udpServerPortEditor.setSize(getWidth() - 20, 30);
+	udpServerPortEditor.setTopLeftPosition(10, 200);
+	udpServerPortEditor.setInputFilter(portInputFilter, true);
+	addAndMakeVisible(udpServerPortEditor);
+#elif defined(JUCE_MAC)
+	// UDP Server IP Editor
+	udpServerIPEditor.setName("UDP Server IP");
+	if (parentCANDrivers.size() > 1)
+	{
+		udpServerIPEditor.setText(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_ip());
+	}
+	udpServerIPEditor.setSize(getWidth() - 20, 30);
+	udpServerIPEditor.setTopLeftPosition(10, 80);
+	addAndMakeVisible(udpServerIPEditor);
+
+	// UDP Server Port Editor
+	auto portInputFilter = new TextEditor::LengthAndCharacterRestriction(5, "1234567890");
+	udpServerPortEditor.setName("UDP Server Port");
+	if (parentCANDrivers.size() > 1)
+	{
+		udpServerPortEditor.setText(isobus::to_string(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_port()));
+	}
+	udpServerPortEditor.setSize(getWidth() - 20, 30);
+	udpServerPortEditor.setTopLeftPosition(10, 140);
+	udpServerPortEditor.setInputFilter(portInputFilter, true);
+	addAndMakeVisible(udpServerPortEditor);
 #endif
 	okButton.onClick = [this, &parent]() {
 		parent.setVisible(false);
@@ -85,6 +162,18 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 			std::static_pointer_cast<isobus::TouCANPlugin>(parentCANDrivers.at(hardwareInterfaceSelector.getSelectedId() - 1))->reconfigure(0, static_cast<std::uint32_t>(serial));
 		}
 
+		// Update UDP settings
+		if (parentCANDrivers.size() > 4)
+		{
+			std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->set_server_ip(udpServerIPEditor.getText().toStdString());
+			int port = udpServerPortEditor.getText().trim().getIntValue();
+			if (port > 0 && port <= 65535)
+			{
+				std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->set_server_port(port);
+			}
+			isobus::CANStackLogger::info("Updated UDP CAN settings: " + udpServerIPEditor.getText().toStdString() + ":" + udpServerPortEditor.getText().toStdString());
+		}
+
 		if (nullptr != isobus::CANHardwareInterface::get_assigned_can_channel_frame_handler(0))
 		{
 			isobus::CANHardwareInterface::unassign_can_channel_frame_handler(0);
@@ -94,6 +183,30 @@ ConfigureHardwareComponent::ConfigureHardwareComponent(ConfigureHardwareWindow &
 #elif JUCE_LINUX
 		std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->set_name(socketCANNameEditor.getText().toStdString());
 		isobus::CANStackLogger::info("Updated socket CAN interface name to: " + socketCANNameEditor.getText().toStdString());
+
+		// Update UDP settings
+		if (parentCANDrivers.size() > 1)
+		{
+			std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_ip(udpServerIPEditor.getText().toStdString());
+			int port = udpServerPortEditor.getText().trim().getIntValue();
+			if (port > 0 && port <= 65535)
+			{
+				std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_port(port);
+			}
+			isobus::CANStackLogger::info("Updated UDP CAN settings: " + udpServerIPEditor.getText().toStdString() + ":" + udpServerPortEditor.getText().toStdString());
+		}
+#elif defined(JUCE_MAC)
+		// Update UDP settings
+		if (parentCANDrivers.size() > 1)
+		{
+			std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_ip(udpServerIPEditor.getText().toStdString());
+			int port = udpServerPortEditor.getText().trim().getIntValue();
+			if (port > 0 && port <= 65535)
+			{
+				std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_port(port);
+			}
+			isobus::CANStackLogger::info("Updated UDP CAN settings: " + udpServerIPEditor.getText().toStdString() + ":" + udpServerPortEditor.getText().toStdString());
+		}
 #endif
 		parent.parentServer.save_settings();
 	};
@@ -108,7 +221,9 @@ void ConfigureHardwareComponent::paint(Graphics &graphics)
 #ifdef JUCE_WINDOWS
 	graphics.drawFittedText("Select the CAN driver to use", 10, 10, bounds.getWidth() - 20, 54, Justification::centredTop, 3);
 #elif JUCE_LINUX
-	graphics.drawFittedText("Enter the name of the CAN interface to use (like \"can0\")", 10, 10, bounds.getWidth() - 20, 54, Justification::centredTop, 3);
+	graphics.drawFittedText("Configure CAN Hardware Interface", 10, 10, bounds.getWidth() - 20, 54, Justification::centredTop, 3);
+#elif defined(JUCE_MAC)
+	graphics.drawFittedText("Configure CAN Hardware Interface", 10, 10, bounds.getWidth() - 20, 54, Justification::centredTop, 3);
 #endif
 
 	graphics.setFont(12.0f);
@@ -120,8 +235,18 @@ void ConfigureHardwareComponent::paint(Graphics &graphics)
 	{
 		graphics.drawFittedText("TouCAN Serial Number", touCANSerialEditor.getBounds().getX(), touCANSerialEditor.getBounds().getY() - 14, touCANSerialEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
 	}
+	else if (5 == hardwareInterfaceSelector.getSelectedId())
+	{
+		graphics.drawFittedText("UDP Server IP Address", udpServerIPEditor.getBounds().getX(), udpServerIPEditor.getBounds().getY() - 14, udpServerIPEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
+		graphics.drawFittedText("UDP Server Port", udpServerPortEditor.getBounds().getX(), udpServerPortEditor.getBounds().getY() - 14, udpServerPortEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
+	}
 #elif JUCE_LINUX
 	graphics.drawFittedText("Socket CAN Interface Name", socketCANNameEditor.getBounds().getX(), socketCANNameEditor.getBounds().getY() - 14, socketCANNameEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
+	graphics.drawFittedText("UDP Server IP Address", udpServerIPEditor.getBounds().getX(), udpServerIPEditor.getBounds().getY() - 14, udpServerIPEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
+	graphics.drawFittedText("UDP Server Port", udpServerPortEditor.getBounds().getX(), udpServerPortEditor.getBounds().getY() - 14, udpServerPortEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
+#elif defined(JUCE_MAC)
+	graphics.drawFittedText("UDP Server IP Address", udpServerIPEditor.getBounds().getX(), udpServerIPEditor.getBounds().getY() - 14, udpServerIPEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
+	graphics.drawFittedText("UDP Server Port", udpServerPortEditor.getBounds().getX(), udpServerPortEditor.getBounds().getY() - 14, udpServerPortEditor.getBounds().getWidth(), 12, Justification::centredLeft, 1);
 #endif
 }
 

@@ -7,6 +7,7 @@
 
 #include "Main.hpp"
 #include "Settings.hpp"
+#include "UDPCANPlugin.hpp"
 #include "git.h"
 
 AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
@@ -27,10 +28,13 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
 #endif
 	canDrivers.push_back(std::make_shared<isobus::TouCANPlugin>(static_cast<std::int16_t>(0), 0));
 	canDrivers.push_back(std::make_shared<isobus::SysTecWindowsPlugin>());
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>("192.168.1.100", 20000));
 #elif defined(JUCE_MAC)
 	canDrivers.push_back(std::make_shared<isobus::MacCANPCANPlugin>(PCAN_USBBUS1));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>("192.168.1.100", 20000));
 #else
 	canDrivers.push_back(std::make_shared<isobus::SocketCANInterface>("can0"));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>("192.168.1.100", 20000));
 #endif
 
 	jassert(!canDrivers.empty()); // You need some kind of CAN interface to run this program!
@@ -58,6 +62,21 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
 		}
 	}
 	else
+	{
+		// Load UDP settings from config
+#ifdef JUCE_WINDOWS
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(4))->set_server_ip(settings.udp_server_ip());
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(4))->set_server_port(settings.udp_server_port());
+#elif defined(JUCE_MAC)
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_ip(settings.udp_server_ip());
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_port(settings.udp_server_port());
+#else
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_ip(settings.udp_server_ip());
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_port(settings.udp_server_port());
+#endif
+	}
+
+	if (settings.load_settings())
 	{
 		if (0 == vtNumberCmdLineArg)
 		{
