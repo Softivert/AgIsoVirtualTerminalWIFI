@@ -48,12 +48,29 @@ bool Settings::load_settings()
 
 				while (child.isValid())
 				{
-					if (Identifier("Hardware") == child.getType() && !child.getProperty("VT_Number").isVoid())
+					if (Identifier("Hardware") == child.getType())
 					{
-						m_vtNumber = static_cast<std::uint8_t>(static_cast<int>(child.getProperty("VT_Number")));
-						if (m_vtNumber == 0 || m_vtNumber > 32)
+						if (!child.getProperty("VT_Number").isVoid())
 						{
-							m_vtNumber = 1;
+							m_vtNumber = static_cast<std::uint8_t>(static_cast<int>(child.getProperty("VT_Number")));
+							if (m_vtNumber == 0 || m_vtNumber > 32)
+							{
+								m_vtNumber = 1;
+							}
+						}
+						
+						// Load UDP settings
+						if (!child.getProperty("UDP_Server_IP").isVoid())
+						{
+							m_udpServerIP = child.getProperty("UDP_Server_IP").toString().toStdString();
+						}
+						if (!child.getProperty("UDP_Server_Port").isVoid())
+						{
+							m_udpServerPort = static_cast<int>(child.getProperty("UDP_Server_Port"));
+							if (m_udpServerPort <= 0 || m_udpServerPort > 65535)
+							{
+								m_udpServerPort = 20000;
+							}
 						}
 						break;
 					}
@@ -76,4 +93,24 @@ std::shared_ptr<ValueTree> Settings::settingsValueTree()
 int Settings::vt_number() const
 {
 	return m_vtNumber;
+}
+
+std::string Settings::udp_server_ip() const
+{
+	return m_udpServerIP;
+}
+
+void Settings::set_udp_server_ip(const std::string &ip)
+{
+	m_udpServerIP = ip;
+}
+
+int Settings::udp_server_port() const
+{
+	return m_udpServerPort;
+}
+
+void Settings::set_udp_server_port(int port)
+{
+	m_udpServerPort = port;
 }
