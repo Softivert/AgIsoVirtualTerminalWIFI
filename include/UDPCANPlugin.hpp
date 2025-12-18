@@ -13,8 +13,18 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+// Undefine Windows macros that conflict with JUCE
+#ifdef Rectangle
+#undef Rectangle
+#endif
+#ifdef MessageBox
+#undef MessageBox
+#endif
 #endif
 
 #include "isobus/hardware_integration/can_hardware_plugin.hpp"
@@ -73,7 +83,7 @@ namespace isobus
 		int get_server_port() const;
 
 		/// @brief Returns the number of channels (always 1 for UDP)
-		std::uint8_t get_number_of_channels() const;
+		std::uint8_t get_number_of_channels() const override;
 
 	private:
 		void receive_thread_function();
