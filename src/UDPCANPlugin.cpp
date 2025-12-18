@@ -110,6 +110,13 @@ namespace isobus
 		if (!get_is_valid())
 			return false;
 
+		// Validate data length to prevent buffer overflow
+		if (canFrame.dataLength > 8)
+		{
+			CANStackLogger::error("[UDP CAN Plugin] Invalid CAN frame data length: " + std::to_string(canFrame.dataLength));
+			return false;
+		}
+
 		// Cannelloni format: [ID (4 bytes BE)] [DLC (1 byte)] [Data (0-8 bytes)]
 		uint8_t buffer[13];
 
@@ -177,6 +184,13 @@ namespace isobus
 				frame.dataLength = buffer[4];
 				if (frame.dataLength > 8)
 					frame.dataLength = 8;
+
+				// Validate we received enough bytes for the claimed data length
+				if (receivedBytes < 5 + frame.dataLength)
+				{
+					CANStackLogger::warn("[UDP CAN Plugin] Received incomplete frame, discarding");
+					continue;
+				}
 
 				// Parse Data
 				memcpy(frame.data, &buffer[5], frame.dataLength);
