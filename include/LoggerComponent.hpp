@@ -28,8 +28,6 @@ public:
 	void sink_CAN_stack_log(LoggingLevel level, const std::string &logText) override;
 	static constexpr int HEIGHT = 200;
 
-	std::uint64_t initialPos() const;
-
 private:
 	struct LogData
 	{
@@ -38,8 +36,6 @@ private:
 	};
 	static constexpr std::size_t MAX_NUMBER_MESSAGES = 3000;
 	std::deque<LogData> loggedMessages;
-
-	std::uint64_t startPos = 0;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LoggerComponent)
 };

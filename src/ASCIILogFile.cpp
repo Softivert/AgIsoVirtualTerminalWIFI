@@ -5,8 +5,6 @@
 *******************************************************************************/
 #include "ASCIILogFile.hpp"
 
-#include "ServerMainComponent.hpp"
-
 #include "isobus/utility/system_timing.hpp"
 #include "isobus/utility/to_string.hpp"
 
@@ -18,7 +16,9 @@ ASCIILogFile::ASCIILogFile()
 	fileNameTime = currentTime.replaceCharacter(' ', '_');
 	fileNameTime = currentTime.replaceCharacter(':', '_');
 
-	logFile = File(ServerMainComponent::getAppDataDir() +
+	logFile = File(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() +
+	               File::getSeparatorString() +
+	               "Open-Agriculture" +
 	               File::getSeparatorString() +
 	               "CANLog_" +
 	               fileNameTime +
@@ -108,9 +108,4 @@ ASCIILogFile::ASCIILogFile()
 	{
 		RuntimePermissions::request(RuntimePermissions::writeExternalStorage, nullptr);
 	}
-}
-
-std::string ASCIILogFile::currentLogFile() const
-{
-	return logFile.getFullPathName().toStdString();
 }

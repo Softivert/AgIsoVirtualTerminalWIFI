@@ -18,7 +18,6 @@
 #elif JUCE_LINUX
 #include "isobus/hardware_integration/socket_can_interface.hpp"
 #endif
-#include "isobus/isobus/can_stack_logger.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -30,10 +29,8 @@ ServerMainComponent::ServerMainComponent(
   std::shared_ptr<isobus::InternalControlFunction> serverControlFunction,
   std::vector<std::shared_ptr<isobus::CANHardwarePlugin>> &canDrivers,
   std::shared_ptr<ValueTree> settings,
-  const std::string &canLogPath_,
-  std::uint8_t vtNumberArg,
-  std::string screenCaptureDir) :
-  VirtualTerminalServer(serverControlFunction), screenCaptureDirArgument(screenCaptureDir), workingSetSelector(*this), dataMaskRenderer(*this), softKeyMaskRenderer(*this), parentCANDrivers(canDrivers), canLogPath(canLogPath_)
+  uint8_t vtNumberArg) :
+  VirtualTerminalServer(serverControlFunction), workingSetSelector(*this), dataMaskRenderer(*this), softKeyMaskRenderer(*this), parentCANDrivers(canDrivers)
 {
 	isobus::CANStackLogger::set_can_stack_logger_sink(&logger);
 	isobus::CANStackLogger::set_log_level(isobus::CANStackLogger::LoggingLevel::Info);
@@ -186,12 +183,12 @@ std::uint8_t ServerMainComponent::get_number_of_physical_soft_keys() const
 	}
 }
 
-std::uint8_t ServerMainComponent::get_physical_soft_key_columns() const
+uint8_t ServerMainComponent::get_physical_soft_key_columns() const
 {
 	return softKeyMaskDimensions.columnCount < 1 ? 1 : softKeyMaskDimensions.columnCount;
 }
 
-std::uint8_t ServerMainComponent::get_physical_soft_key_rows() const
+uint8_t ServerMainComponent::get_physical_soft_key_rows() const
 {
 	return softKeyMaskDimensions.rowCount < 1 ? 1 : softKeyMaskDimensions.rowCount;
 }
@@ -253,7 +250,9 @@ std::vector<std::array<std::uint8_t, 7>> ServerMainComponent::get_versions(isobu
 	std::ostringstream nameString;
 	std::vector<std::array<std::uint8_t, 7>> retVal;
 	nameString << std::hex << std::setfill('0') << std::setw(16) << clientNAME.get_full_name();
-	File isoDirectory(getAppDataDir() +
+	File isoDirectory(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName().toStdString() +
+	                  File::getSeparatorString() +
+	                  "Open-Agriculture" +
 	                  File::getSeparatorString() +
 	                  ISO_DATA_PATH +
 	                  File::getSeparatorString() +
@@ -309,7 +308,9 @@ std::vector<std::uint8_t> ServerMainComponent::load_version(const std::vector<st
 	std::ostringstream nameString;
 	std::vector<std::uint8_t> loadedIOPData;
 	std::vector<std::uint8_t> loadedVersionLabel(7);
-	std::string path = (getAppDataDir() +
+	std::string path = (File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() +
+	                    File::getSeparatorString() +
+	                    "Open-Agriculture" +
 	                    File::getSeparatorString() +
 	                    ISO_DATA_PATH +
 	                    File::getSeparatorString())
@@ -359,7 +360,10 @@ std::vector<std::uint8_t> ServerMainComponent::load_version(const std::vector<st
 bool ServerMainComponent::save_version(const std::vector<std::uint8_t> &objectPool, const std::vector<std::uint8_t> &versionLabel, isobus::NAME clientNAME)
 {
 	bool retVal = false;
-	std::string path = (getAppDataDir() +
+	auto userAppData = File::getSpecialLocation(File::userApplicationDataDirectory);
+	std::string path = (userAppData.getFullPathName() +
+	                    File::getSeparatorString() +
+	                    "Open-Agriculture" +
 	                    File::getSeparatorString() +
 	                    String(ISO_DATA_PATH))
 	                     .toStdString();
@@ -403,7 +407,9 @@ bool ServerMainComponent::delete_version(const std::vector<std::uint8_t> &versio
 	std::ostringstream nameString;
 	std::vector<std::uint8_t> loadedVersionLabel(7);
 	std::vector<std::filesystem::directory_entry> filesToRemove;
-	std::string path = (getAppDataDir() +
+	std::string path = (File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() +
+	                    File::getSeparatorString() +
+	                    "Open-Agriculture" +
 	                    File::getSeparatorString() +
 	                    ISO_DATA_PATH +
 	                    File::getSeparatorString())
@@ -462,7 +468,9 @@ bool ServerMainComponent::delete_all_versions(isobus::NAME clientNAME)
 	std::ostringstream nameString;
 	std::vector<std::uint8_t> loadedVersionLabel(7);
 	std::vector<std::filesystem::directory_entry> filesToRemove;
-	auto path = (getAppDataDir() +
+	auto path = (File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName().toStdString() +
+	             File::getSeparatorString() +
+	             "Open-Agriculture" +
 	             File::getSeparatorString() +
 	             ISO_DATA_PATH +
 	             File::getSeparatorString())
@@ -539,10 +547,6 @@ void ServerMainComponent::timerCallback()
 			{
 				send_end_of_object_pool_response(true, isobus::NULL_OBJECT_ID, isobus::NULL_OBJECT_ID, 0, ws->get_control_function());
 			}
-
-			std::ostringstream nameString;
-			nameString << std::hex << std::setfill('0') << std::setw(16) << ws->get_control_function()->get_NAME().get_full_name();
-			loadedNames.insert(nameString.str());
 		}
 		else if (isobus::VirtualTerminalServerManagedWorkingSet::ObjectPoolProcessingThreadState::Fail == ws->get_object_pool_processing_state())
 		{
@@ -706,7 +710,6 @@ void ServerMainComponent::getAllCommands(juce::Array<juce::CommandID> &allComman
 	allCommands.add(static_cast<int>(CommandIDs::ConfigureShortcuts));
 	allCommands.add(static_cast<int>(CommandIDs::ConfigureLogging));
 	allCommands.add(static_cast<int>(CommandIDs::GenerateLogPackage));
-	allCommands.add(static_cast<int>(CommandIDs::GenerateLogPackageFromCurrentSession));
 	allCommands.add(static_cast<int>(CommandIDs::ClearISOData));
 	allCommands.add(static_cast<int>(CommandIDs::StartStop));
 	allCommands.add(static_cast<int>(CommandIDs::AutoStart));
@@ -754,12 +757,6 @@ void ServerMainComponent::getCommandInfo(juce::CommandID commandID, ApplicationC
 		case CommandIDs::GenerateLogPackage:
 		{
 			result.setInfo("Generate Diagnostic Package", "Creates a zip file of diagnostic information", "Troubleshooting", 0);
-		}
-		break;
-
-		case CommandIDs::GenerateLogPackageFromCurrentSession:
-		{
-			result.setInfo("Generate Diagnostic Package from the current session", "Creates a zip file of diagnostic information from the current session", "Troubleshooting", 0);
 		}
 		break;
 
@@ -897,9 +894,6 @@ bool ServerMainComponent::perform(const InvocationInfo &info)
 			popupMenu->addTextBlock("Select if the log window should be shown or hidden. Showing the log window may affect performance.");
 			popupMenu->addComboBox("Logging Window", { "Hidden", "Enabled" });
 			popupMenu->getComboBoxComponent("Logging Window")->setSelectedItemIndex(loggerViewport.isVisible() ? 1 : 0);
-			popupMenu->addTextBlock("Save IOP data before parsing. This allows providing IOP data for debugging parser crashes.");
-			popupMenu->addComboBox("Save IOP data before parsing", { "No", "Yes" });
-			popupMenu->getComboBoxComponent("Save IOP data before parsing")->setSelectedItemIndex(saveIopBeforeParse ? 1 : 0);
 			popupMenu->addButton("OK", 4, KeyPress(KeyPress::returnKey, 0, 0));
 			popupMenu->addButton("Cancel", 0, KeyPress(KeyPress::escapeKey, 0, 0));
 			popupMenu->enterModalState(true, ModalCallbackFunction::create(LanguageCommandConfigClosed{ *this }));
@@ -920,7 +914,7 @@ bool ServerMainComponent::perform(const InvocationInfo &info)
 			auto diagnosticFileBuilder = std::make_unique<ZipFile::Builder>();
 			bool anyFilesAdded = false;
 
-			auto userDataFolder = File(getAppDataDir() + File::getSeparatorString());
+			auto userDataFolder = File(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() + File::getSeparatorString() + "Open-Agriculture" + File::getSeparatorString());
 			auto userDataFiles = userDataFolder.findChildFiles(File::TypesOfFileToFind::findFiles, false, "*");
 			for (auto &file : userDataFiles)
 			{
@@ -932,14 +926,14 @@ bool ServerMainComponent::perform(const InvocationInfo &info)
 				}
 			}
 
-			auto isoDataDirectory = userDataFolder.getChildFile("iso_data").findChildFiles(File::TypesOfFileToFind::findDirectories, false, "*");
+			auto childDirectories = userDataFolder.findChildFiles(File::TypesOfFileToFind::findDirectories, false, "*");
 
-			for (auto &iop_directory : isoDataDirectory)
+			for (auto &directory : childDirectories)
 			{
-				auto iopFiles = iop_directory.findChildFiles(File::TypesOfFileToFind::findFiles, false, "*.iop");
-				for (auto &iopFile : iopFiles)
+				auto childFiles = directory.findChildFiles(File::TypesOfFileToFind::findFiles, false, "*.iop");
+				for (auto &file : childFiles)
 				{
-					diagnosticFileBuilder->addFile(iopFile, 9, "iso_data/" + iop_directory.getFileName() + "/" + iopFile.getFileName());
+					diagnosticFileBuilder->addFile(file, 9);
 					anyFilesAdded = true;
 				}
 			}
@@ -949,7 +943,9 @@ bool ServerMainComponent::perform(const InvocationInfo &info)
 				auto currentTime = Time::getCurrentTime().toString(true, true, true, false);
 				currentTime = currentTime.replaceCharacter(' ', '_');
 				currentTime = currentTime.replaceCharacter(':', '_');
-				const String fileName = getAppDataDir() +
+				const String fileName = File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() +
+				  File::getSeparatorString() +
+				  "Open-Agriculture" +
 				  File::getSeparatorString() +
 				  "AgISOVirtualTerminalLogs_" +
 				  currentTime +
@@ -966,54 +962,6 @@ bool ServerMainComponent::perform(const InvocationInfo &info)
 				                         .withButton("OK"),
 				                       nullptr);
 			}
-			retVal = true;
-		}
-		break;
-
-		case static_cast<int>(CommandIDs::GenerateLogPackageFromCurrentSession):
-		{
-			auto diagnosticFileBuilder = std::make_unique<ZipFile::Builder>();
-
-			// for the current session add the current CAN log file only
-			auto canLogFileName = File(canLogPath);
-			diagnosticFileBuilder->addFile(canLogFileName, 9, canLogFileName.getFileName());
-
-			// Cut the output logging where we started
-			FileInputStream *fis = new FileInputStream(logger.getLogFile());
-			if (fis->openedOk())
-			{
-				fis->setPosition(logger.initialPos());
-				diagnosticFileBuilder->addEntry(fis, 9, "AgISOVirtualTerminalLog.txt", Time::getCurrentTime());
-			}
-
-			auto userDataFolder = File(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() + File::getSeparatorString() + "Open-Agriculture" + File::getSeparatorString());
-
-			auto iopDirs = userDataFolder.getChildFile("iso_data").findChildFiles(File::TypesOfFileToFind::findDirectories, false, "*");
-			for (auto &iopDir : iopDirs)
-			{
-				if (loadedNames.find(iopDir.getFileName().toStdString()) != loadedNames.end())
-				{
-					auto childFiles = iopDir.findChildFiles(File::TypesOfFileToFind::findFiles, false, "*.iop");
-					for (auto &file : childFiles)
-					{
-						diagnosticFileBuilder->addFile(file, 9, "iso_data/" + iopDir.getFileName().toStdString() + "/" + file.getFileName().toStdString());
-					}
-				}
-			}
-
-			auto currentTime = Time::getCurrentTime().toString(true, true, true, false);
-			currentTime = currentTime.replaceCharacter(' ', '_');
-			currentTime = currentTime.replaceCharacter(':', '_');
-			const String fileName = File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() +
-			  File::getSeparatorString() +
-			  "Open-Agriculture" +
-			  File::getSeparatorString() +
-			  "AgISOVirtualTerminalLogs_" +
-			  currentTime +
-			  ".zip";
-			auto output = File(fileName).createOutputStream();
-			diagnosticFileBuilder->writeToStream(*output.get(), nullptr);
-			File(fileName).revealToUser();
 			retVal = true;
 		}
 		break;
@@ -1143,7 +1091,6 @@ PopupMenu ServerMainComponent::getMenuForIndex(int index, const juce::String &)
 		case 2:
 		{
 			retVal.addCommandItem(&mCommandManager, static_cast<int>(CommandIDs::GenerateLogPackage));
-			retVal.addCommandItem(&mCommandManager, static_cast<int>(CommandIDs::GenerateLogPackageFromCurrentSession));
 			retVal.addCommandItem(&mCommandManager, static_cast<int>(CommandIDs::ClearISOData));
 		}
 		break;
@@ -1369,8 +1316,6 @@ void ServerMainComponent::LanguageCommandConfigClosed::operator()(int result) co
 				mParent.logger.setVisible(false);
 				mParent.loggerViewport.setVisible(false);
 			}
-
-			mParent.saveIopBeforeParse = (mParent.popupMenu->getComboBoxComponent("Save IOP data before parsing")->getSelectedItemIndex() == 1);
 			mParent.save_settings();
 		}
 		break;
@@ -1401,7 +1346,7 @@ ServerMainComponent::HeldButtonData::HeldButtonData(std::shared_ptr<isobus::Virt
 {
 }
 
-bool ServerMainComponent::HeldButtonData::operator==(const HeldButtonData &other) const
+bool ServerMainComponent::HeldButtonData::operator==(const HeldButtonData &other)
 {
 	return ((other.activeMaskObjectID == activeMaskObjectID) &&
 	        (other.associatedWorkingSet == associatedWorkingSet) &&
@@ -1481,28 +1426,6 @@ bool ServerMainComponent::timeAndDateCallback(isobus::TimeDateInterface::TimeAnd
 	timeAndDate.localHourOffset = static_cast<std::int8_t>(localTime.tm_hour - utcTime.tm_hour);
 	timeAndDate.localMinuteOffset = static_cast<std::int8_t>(localTime.tm_min - utcTime.tm_min);
 	return true;
-}
-
-void ServerMainComponent::transferred_object_pool_parse_start(std::shared_ptr<isobus::VirtualTerminalServerManagedWorkingSet> &workingSet) const
-{
-	if (!saveIopBeforeParse)
-	{
-		return;
-	}
-
-	auto debugIopSavePath = juce::String(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName().toStdString() +
-	                                     File::getSeparatorString() +
-	                                     "Open-Agriculture" +
-	                                     File::getSeparatorString() + "debug.iop")
-	                          .toStdString();
-
-	LOG_INFO("[WS]: Saving IOP data to  %s before parsing", debugIopSavePath.c_str());
-	std::ofstream fs(debugIopSavePath, std::ios::out | std::ios::binary);
-	for (auto i = 0; i < workingSet->get_number_iop_files(); i++)
-	{
-		fs.write(reinterpret_cast<const char *>(workingSet->get_iop_raw_data(i).data()), static_cast<std::streamsize>(workingSet->get_iop_raw_data(i).size()));
-	}
-	fs.close();
 }
 
 void ServerMainComponent::on_change_active_mask_callback(std::shared_ptr<isobus::VirtualTerminalServerManagedWorkingSet> affectedWorkingSet, std::uint16_t, std::uint16_t newMask)
@@ -1725,15 +1648,6 @@ void ServerMainComponent::check_load_settings(std::shared_ptr<ValueTree> setting
 				logger.setVisible(false);
 				loggerViewport.setVisible(false);
 			}
-
-			if (!child.getProperty("SaveIopBeforeParse").isVoid())
-			{
-				saveIopBeforeParse = static_cast<int>(child.getProperty("SaveIopBeforeParse")) != 0;
-			}
-			else
-			{
-				saveIopBeforeParse = false;
-			}
 		}
 		else if (Identifier("Control") == child.getType())
 		{
@@ -1767,7 +1681,9 @@ void ServerMainComponent::check_load_settings(std::shared_ptr<ValueTree> setting
 
 void ServerMainComponent::save_settings()
 {
-	File dataDirectory(getAppDataDir());
+	auto lDefaultSaveLocation = File::getSpecialLocation(File::userApplicationDataDirectory);
+	String lDataDirectoryPath = (lDefaultSaveLocation.getFullPathName().toStdString() + "/Open-Agriculture");
+	File dataDirectory(lDataDirectoryPath);
 	bool lCanSaveSettings = false;
 
 	if (dataDirectory.exists() && dataDirectory.isDirectory())
@@ -1782,7 +1698,7 @@ void ServerMainComponent::save_settings()
 
 	if (lCanSaveSettings)
 	{
-		String lFilePath = (getAppDataDir() + File::getSeparatorString() + "vt_settings.xml");
+		String lFilePath = (lDefaultSaveLocation.getFullPathName().toStdString() + "/Open-Agriculture/" + "vt_settings.xml");
 		File settingsFile = File(lFilePath);
 		ValueTree settings("Settings");
 		ValueTree languageCommandSettings("LanguageCommand");
@@ -1835,7 +1751,6 @@ void ServerMainComponent::save_settings()
 		}
 		loggingSettings.setProperty("Level", static_cast<int>(isobus::CANStackLogger::get_log_level()), nullptr);
 		loggingSettings.setProperty("Shown", static_cast<int>(logger.isVisible()), nullptr);
-		loggingSettings.setProperty("SaveIopBeforeParse", static_cast<int>(saveIopBeforeParse), nullptr);
 		controlSettings.setProperty("AutoStart", autostart, nullptr);
 		controlSettings.setProperty("AlarmAckKey", alarmAckKeyCode, nullptr);
 		settings.appendChild(languageCommandSettings, nullptr);
@@ -1875,103 +1790,6 @@ void ServerMainComponent::identify_vt()
 	});
 }
 
-void ServerMainComponent::screen_capture(std::uint8_t item, std::uint8_t path, std::shared_ptr<isobus::ControlFunction> requestor)
-{
-	File saveDir;
-	if (!screenCaptureDirArgument.empty())
-	{
-		saveDir = File(screenCaptureDirArgument);
-	}
-	else
-	{
-		saveDir = File(getAppDataDir() + File::getSeparatorString() + "screen captures");
-	}
-
-	int saveFileIndex = 1;
-	bool ok = true;
-	std::uint8_t error = 0;
-
-	if (static_cast<isobus::VirtualTerminalServer::ScreenCaptureItem>(item) != isobus::VirtualTerminalServer::ScreenCaptureItem::ScreenImage)
-	{
-		LOG_WARNING("[VT Server]: Only the 'Screen Image' (0) screen capture item is supported");
-		ok = false;
-		error |= static_cast<std::uint8_t>(isobus::VirtualTerminalServer::ScreenCaptureResponseErrorBit::UnsupportedItemRequest);
-	}
-
-	if (static_cast<isobus::VirtualTerminalServer::ScreenCapturePath>(path) != isobus::VirtualTerminalServer::ScreenCapturePath::VT_StorageOrRemovableMedia)
-	{
-		LOG_WARNING("[VT Server]: Only 'VT accessible storage/removable media' (1) screen capture path is supported");
-		ok = false;
-		error |= static_cast<std::uint8_t>(isobus::VirtualTerminalServer::ScreenCaptureResponseErrorBit::UnsupportedPathRequest);
-	}
-
-	if (!saveDir.exists())
-	{
-		if (!saveDir.createDirectory())
-		{
-			LOG_ERROR("[VT Server]: Failed to create screen capture directory: %s", saveDir.getFullPathName().toStdString().c_str());
-			ok = false;
-			error |= static_cast<std::uint8_t>(isobus::VirtualTerminalServer::ScreenCaptureResponseErrorBit::RemovableMediaUnavailable);
-		}
-	}
-
-	if (!saveDir.isDirectory())
-	{
-		LOG_ERROR("[VT Server]: The screen capture path is not a directory: %s", saveDir.getFullPathName().toStdString().c_str());
-		ok = false;
-		error |= static_cast<std::uint8_t>(isobus::VirtualTerminalServer::ScreenCaptureResponseErrorBit::RemovableMediaUnavailable);
-	}
-
-	if (!ok)
-	{
-		send_capture_screen_response(item, path, error, 0, requestor);
-		return;
-	}
-
-	File saveFile;
-	while (saveFileIndex < 99999)
-	{
-		String fileName = "IMG" + String(saveFileIndex).paddedLeft('0', 5) + ".png";
-		saveFile = saveDir.getChildFile(fileName);
-
-		if (!saveFile.existsAsFile())
-		{
-			break;
-		}
-
-		++saveFileIndex;
-	}
-
-	if (saveFileIndex >= 99999)
-	{
-		error = static_cast<std::uint8_t>(isobus::VirtualTerminalServer::ScreenCaptureResponseErrorBit::RemovableMediaUnavailable);
-		send_capture_screen_response(item, path, error, 0, requestor);
-		return;
-	}
-
-	Image image(Image::PixelFormat::ARGB, dataMaskRenderer.getWidth() + softKeyMaskRenderer.getWidth(), dataMaskRenderer.getHeight(), true);
-	Graphics g(image);
-	paint(g);
-	juce::AffineTransform t;
-	g.addTransform(t.translated(-dataMaskRenderer.getX(), -dataMaskRenderer.getY()));
-	paintEntireComponent(g, false);
-
-	PNGImageFormat pngFormat;
-	std::unique_ptr<FileOutputStream> stream(saveFile.createOutputStream());
-	if (stream && pngFormat.writeImageToStream(image, *stream))
-	{
-		LOG_INFO("[VT Server]: Screen capture saved to: %s", saveFile.getFullPathName().toStdString().c_str());
-	}
-	else
-	{
-		LOG_ERROR("[VT Server]: Failed to save screen capture to: %s", saveFile.getFullPathName().toStdString().c_str());
-		ok = false;
-	}
-
-	error = ok ? 0 : static_cast<std::uint8_t>(isobus::VirtualTerminalServer::ScreenCaptureResponseErrorBit::AnyOtherError);
-	send_capture_screen_response(item, path, error, saveFileIndex, requestor);
-}
-
 int ServerMainComponent::minimum_height() const
 {
 	if (dataMaskRenderer.getHeight() > softKeyMaskDimensions.total_height())
@@ -1994,7 +1812,9 @@ void ServerMainComponent::remove_working_set(std::shared_ptr<isobus::VirtualTerm
 
 void ServerMainComponent::clear_iso_data()
 {
-	File isoDirectory(getAppDataDir() +
+	File isoDirectory(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName().toStdString() +
+	                  File::getSeparatorString() +
+	                  "Open-Agriculture" +
 	                  File::getSeparatorString() +
 	                  ISO_DATA_PATH +
 	                  File::getSeparatorString());
@@ -2004,9 +1824,4 @@ void ServerMainComponent::clear_iso_data()
 		isoDirectory.deleteRecursively();
 		isobus::CANStackLogger::info("ISO Data cleared");
 	}
-}
-
-std::string ServerMainComponent::getAppDataDir()
-{
-	return juce::String(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() + File::getSeparatorString() + "Open-Agriculture").toStdString();
 }
