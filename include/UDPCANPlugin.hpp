@@ -9,6 +9,14 @@
 #ifndef UDP_CAN_PLUGIN_HPP
 #define UDP_CAN_PLUGIN_HPP
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+
 #include "isobus/hardware_integration/can_hardware_plugin.hpp"
 #include <thread>
 #include <atomic>
@@ -16,11 +24,7 @@
 #include <queue>
 #include <mutex>
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
-#else
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

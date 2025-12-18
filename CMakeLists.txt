@@ -114,6 +114,10 @@ target_link_libraries(
          cmake_git_version_tracking)
 
 if(WIN32)
+  target_link_libraries(AgISOVirtualTerminal PRIVATE ws2_32)
+endif()
+
+if(WIN32)
   add_custom_command(
     TARGET AgISOVirtualTerminal
     POST_BUILD
