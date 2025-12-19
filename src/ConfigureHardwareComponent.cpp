@@ -3,18 +3,11 @@
 ** @author     Adrian Del Grosso
 ** @copyright  The Open-Agriculture Developers
 *******************************************************************************/
-// Include UDPCANPlugin.hpp first on Windows to ensure winsock2.h is included before windows.h
-#ifdef _WIN32
-#include "UDPCANPlugin.hpp"
-#endif
-
 #include "ConfigureHardwareComponent.hpp"
 
 #include "ConfigureHardwareWindow.hpp"
 #include "ServerMainComponent.hpp"
-#ifndef _WIN32
 #include "UDPCANPlugin.hpp"
-#endif
 #include "isobus/isobus/can_stack_logger.hpp"
 #include "isobus/utility/to_string.hpp"
 
