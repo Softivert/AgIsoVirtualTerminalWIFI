@@ -3,24 +3,29 @@
 ** @author     Adrian Del Grosso
 ** @copyright  The Open-Agriculture Developers
 *******************************************************************************/
+// Include UDPCANPlugin.hpp first on Windows to ensure winsock2.h is included before windows.h
+#ifdef _WIN32
+#include "UDPCANPlugin.hpp"
+#endif
+
 #include "isobus/hardware_integration/available_can_drivers.hpp"
 
 #include "Main.hpp"
 #include "Settings.hpp"
+#ifndef _WIN32
 #include "UDPCANPlugin.hpp"
+#endif
 #include "git.h"
 
-AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int vtNumberCmdLineArg) :
+AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name,
+                                                        const std::string &canLogPath,
+                                                        int vtNumberCmdLineArg,
+                                                        std::string screenCaptureDir) :
   DocumentWindow(name,
                  juce::Desktop::getInstance().getDefaultLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId),
                  DocumentWindow::allButtons)
 {
 	int vtNumber = vtNumberCmdLineArg;
-	Settings settings;
-	
-	// Load settings first to get UDP configuration
-	bool settingsLoaded = settings.load_settings();
-	
 #ifdef JUCE_WINDOWS
 	canDrivers.push_back(std::make_shared<isobus::PCANBasicWindowsPlugin>(static_cast<WORD>(PCAN_USBBUS1)));
 #ifdef ISOBUS_WINDOWSINNOMAKERUSB2CAN_AVAILABLE
@@ -30,13 +35,13 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int v
 #endif
 	canDrivers.push_back(std::make_shared<isobus::TouCANPlugin>(static_cast<std::int16_t>(0), 0));
 	canDrivers.push_back(std::make_shared<isobus::SysTecWindowsPlugin>());
-	canDrivers.push_back(std::make_shared<UDPCANPlugin>(settings.udp_server_ip(), settings.udp_server_port()));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>("192.168.1.100", 20000));
 #elif defined(JUCE_MAC)
 	canDrivers.push_back(std::make_shared<isobus::MacCANPCANPlugin>(PCAN_USBBUS1));
-	canDrivers.push_back(std::make_shared<UDPCANPlugin>(settings.udp_server_ip(), settings.udp_server_port()));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>("192.168.1.100", 20000));
 #else
 	canDrivers.push_back(std::make_shared<isobus::SocketCANInterface>("can0"));
-	canDrivers.push_back(std::make_shared<UDPCANPlugin>(settings.udp_server_ip(), settings.udp_server_port()));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>("192.168.1.100", 20000));
 #endif
 
 	jassert(!canDrivers.empty()); // You need some kind of CAN interface to run this program!
@@ -52,18 +57,29 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int v
 #endif
 	isobus::NAME serverNAME(0);
 
-	if (!settingsLoaded)
+	Settings settings;
+	if (!settings.load_settings())
 	{
-		{
-			isobus::CANStackLogger::info("Config file not found, using defaults.");
+		isobus::CANStackLogger::info("Config file not found, using defaults.");
 #ifdef JUCE_LINUX
-			std::static_pointer_cast<isobus::SocketCANInterface>(canDrivers.at(0))->set_name("can0");
-			isobus::CANStackLogger::warn("Socket CAN interface name not yet configured. Using default of \"can0\"");
+		std::static_pointer_cast<isobus::SocketCANInterface>(canDrivers.at(0))->set_name("can0");
+		isobus::CANStackLogger::warn("Socket CAN interface name not yet configured. Using default of \"can0\"");
 #endif
-		}
 	}
 	else
 	{
+		// Load UDP settings from config
+#ifdef JUCE_WINDOWS
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(4))->set_server_ip(settings.udp_server_ip());
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(4))->set_server_port(settings.udp_server_port());
+#elif defined(JUCE_MAC)
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_ip(settings.udp_server_ip());
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_port(settings.udp_server_port());
+#else
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_ip(settings.udp_server_ip());
+		std::static_pointer_cast<isobus::UDPCANPlugin>(canDrivers.at(1))->set_server_port(settings.udp_server_port());
+#endif
+
 		if (0 == vtNumberCmdLineArg)
 		{
 			// no command line argument provided -> use the saved setting
@@ -84,7 +100,7 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int v
 	serverNAME.set_manufacturer_code(1407);
 	serverInternalControlFunction = isobus::CANNetworkManager::CANNetwork.create_internal_control_function(serverNAME, 0, 0x26);
 	setUsingNativeTitleBar(true);
-	setContentOwned(new ServerMainComponent(serverInternalControlFunction, canDrivers, settings.settingsValueTree(), vtNumber), true);
+	setContentOwned(new ServerMainComponent(serverInternalControlFunction, canDrivers, settings.settingsValueTree(), canLogPath, vtNumber, screenCaptureDir), true);
 
 #if JUCE_IOS || JUCE_ANDROID
 	setFullScreen(true);

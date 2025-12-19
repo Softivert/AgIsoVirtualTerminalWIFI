@@ -1,93 +1,108 @@
 //================================================================================================
 /// @file UDPCANPlugin.hpp
 ///
-/// @brief A CAN hardware plugin for UDP/TCP communication using cannelloni protocol
-/// @author Open-Agriculture Contributors
+/// @brief Defines a UDP-based CAN plugin compatible with cannelloni for remote CAN connectivity.
+/// @author The Open-Agriculture Developers
 ///
-/// @copyright 2024 The Open-Agriculture Contributors
+/// @copyright 2023 The Open-Agriculture Contributors
 //================================================================================================
 #ifndef UDP_CAN_PLUGIN_HPP
 #define UDP_CAN_PLUGIN_HPP
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+// Undefine Windows macros that conflict with JUCE
+#ifdef Rectangle
+#undef Rectangle
+#endif
+#ifdef MessageBox
+#undef MessageBox
+#endif
+#endif
+
 #include "isobus/hardware_integration/can_hardware_plugin.hpp"
-#include "isobus/isobus/can_hardware_abstraction.hpp"
-#include "isobus/isobus/can_message_frame.hpp"
-
-#include <JuceHeader.h>
-#include <atomic>
-#include <memory>
-#include <string>
 #include <thread>
+#include <atomic>
+#include <string>
+#include <queue>
+#include <mutex>
 
-/// @brief A CAN driver for UDP communication compatible with cannelloni
-class UDPCANPlugin : public isobus::CANHardwarePlugin
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#endif
+
+namespace isobus
 {
-public:
-	/// @brief Constructor for the UDP CAN plugin
-	/// @param serverIP The IP address of the cannelloni server
-	/// @param serverPort The UDP port of the cannelloni server
-	UDPCANPlugin(const std::string &serverIP, int serverPort);
-
-	/// @brief Destructor
-	virtual ~UDPCANPlugin();
-
-	/// @brief Opens the UDP connection
-	/// @return True if the connection was successful
-	bool open() override;
-
-	/// @brief Closes the UDP connection
-	/// @return True if the connection was closed successfully
-	bool close() override;
-
-	/// @brief Returns if the connection is valid
-	/// @return True if the UDP socket is connected
-	bool get_is_valid() const override;
-
-	/// @brief Reads a CAN frame from the UDP socket
-	/// @param[out] canFrame The CAN frame that was read
-	/// @return True if a frame was read successfully
-	bool read_frame(isobus::CANMessageFrame &canFrame) override;
-
-	/// @brief Writes a CAN frame to the UDP socket
-	/// @param[in] canFrame The CAN frame to write
-	/// @return True if the frame was written successfully
-	bool write_frame(const isobus::CANMessageFrame &canFrame) override;
-
-	/// @brief Reconfigure the plugin with new IP and port
-	/// @param serverIP The new IP address
-	/// @param serverPort The new port
-	void reconfigure(const std::string &serverIP, int serverPort);
-
-	/// @brief Get the configured server IP
-	/// @return The server IP address
-	std::string get_server_ip() const;
-
-	/// @brief Get the configured server port
-	/// @return The server port
-	int get_server_port() const;
-
-private:
-	/// @brief Structure representing a SocketCAN frame (compatible with cannelloni)
-	struct CanFrame
+	/// @brief Plugin for UDP-based CAN communication (cannelloni compatible)
+	class UDPCANPlugin : public CANHardwarePlugin
 	{
-		std::uint32_t can_id; ///< CAN identifier (with EFF/RTR/ERR flags)
-		std::uint8_t can_dlc; ///< Data length code
-		std::uint8_t __pad;   ///< Padding
-		std::uint8_t __res0;  ///< Reserved
-		std::uint8_t __res1;  ///< Reserved
-		std::uint8_t data[8]; ///< CAN frame data
-	} __attribute__((packed));
+	public:
+		/// @brief Constructor
+		/// @param serverIP IP address of the cannelloni server (e.g., Raspberry Pi)
+		/// @param serverPort UDP port (default: 20000 for cannelloni)
+		UDPCANPlugin(const std::string &serverIP, int serverPort = 20000);
 
-	/// @brief Thread function for receiving frames
-	void receive_thread_function();
+		/// @brief Destructor
+		virtual ~UDPCANPlugin();
 
-	std::unique_ptr<juce::DatagramSocket> socket; ///< UDP socket for communication
-	std::string serverIP;                         ///< IP address of the cannelloni server
-	int serverPort;                               ///< UDP port of the cannelloni server
-	std::atomic<bool> running;                    ///< Flag indicating if the plugin is running
-	std::unique_ptr<std::thread> receiveThread;   ///< Thread for receiving frames
-	juce::CriticalSection frameLock;              ///< Lock for thread-safe frame access
-	std::vector<isobus::CANMessageFrame> receiveQueue; ///< Queue of received frames
-};
+		/// @brief Returns if the connection is valid
+		bool get_is_valid() const override;
+
+		/// @brief Closes the connection
+		void close() override;
+
+		/// @brief Connects to the UDP server
+		void open() override;
+
+		/// @brief Writes a frame to the UDP socket
+		bool write_frame(const isobus::CANMessageFrame &canFrame) override;
+
+		/// @brief Reads frames from UDP (called periodically)
+		bool read_frame(isobus::CANMessageFrame &canFrame) override;
+
+		/// @brief Set the server IP address
+		void set_server_ip(const std::string &ip);
+
+		/// @brief Set the server port
+		void set_server_port(int port);
+
+		/// @brief Get the server IP address
+		std::string get_server_ip() const;
+
+		/// @brief Get the server port
+		int get_server_port() const;
+
+		/// @brief Returns the number of channels (always 1 for UDP)
+		std::uint8_t get_number_of_channels() const override;
+
+	private:
+		void receive_thread_function();
+
+		std::string serverIP;
+		int serverPort;
+		int socketFD;
+		std::atomic<bool> isRunning;
+		std::atomic<bool> isOpen;
+		std::thread receiveThread;
+		std::queue<isobus::CANMessageFrame> receiveQueue;
+		std::mutex queueMutex;
+
+		struct sockaddr_in serverAddress;
+
+#ifdef _WIN32
+		WSADATA wsaData;
+#endif
+	};
+}
 
 #endif // UDP_CAN_PLUGIN_HPP
