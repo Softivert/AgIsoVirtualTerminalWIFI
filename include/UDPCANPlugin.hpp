@@ -83,7 +83,7 @@ namespace isobus
 		int get_server_port() const;
 
 		/// @brief Returns the number of channels (always 1 for UDP)
-		std::uint8_t get_number_of_channels() const override;
+		std::uint8_t get_number_of_channels() const;
 
 	private:
 		void receive_thread_function();
