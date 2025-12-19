@@ -100,7 +100,7 @@ target_sources(
           "src/InputListComponent.cpp"
           "src/ShortcutsWindow.cpp"
           "src/Settings.cpp"
-          "src/VT_NumberComponent.cpp")
+          "src/VT_NumberComponent.cpp" )
 
 target_include_directories(AgISOVirtualTerminal
                            PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
