@@ -9,6 +9,7 @@
 #include "JuceManagedWorkingSetCache.hpp"
 #include "Main.hpp"
 #include "ShortcutsWindow.hpp"
+#include "UDPCANPlugin.hpp"
 #include "isobus/utility/system_timing.hpp"
 
 #include "SoftKeyMaskRenderAreaComponent.hpp"
@@ -1627,6 +1628,36 @@ void ServerMainComponent::check_load_settings(std::shared_ptr<ValueTree> setting
 				isobus::CANStackLogger::warn("Socket CAN interface name not yet configured. Using default of \"can0\"");
 			}
 #endif
+
+			// Load UDP CAN settings
+			if (!child.getProperty("UDP_Server_IP").isVoid() && !child.getProperty("UDP_Server_Port").isVoid())
+			{
+				std::string udpIP = child.getProperty("UDP_Server_IP").toString().toStdString();
+				int udpPort = static_cast<int>(child.getProperty("UDP_Server_Port"));
+
+#ifdef JUCE_WINDOWS
+				if (parentCANDrivers.size() > 4)
+				{
+					std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->set_server_ip(udpIP);
+					std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->set_server_port(udpPort);
+					isobus::CANStackLogger::info("Loaded UDP CAN settings: " + udpIP + ":" + std::to_string(udpPort));
+				}
+#elif defined(JUCE_MAC)
+				if (parentCANDrivers.size() > 1)
+				{
+					std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_ip(udpIP);
+					std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_port(udpPort);
+					isobus::CANStackLogger::info("Loaded UDP CAN settings: " + udpIP + ":" + std::to_string(udpPort));
+				}
+#else
+				if (parentCANDrivers.size() > 1)
+				{
+					std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_ip(udpIP);
+					std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->set_server_port(udpPort);
+					isobus::CANStackLogger::info("Loaded UDP CAN settings: " + udpIP + ":" + std::to_string(udpPort));
+				}
+#endif
+			}
 			softKeyMaskRenderer.setTopLeftPosition(100 + dataMaskRenderer.getWidth(), 4 + juce::LookAndFeel::getDefaultLookAndFeel().getDefaultMenuBarHeight());
 			JuceManagedWorkingSetCache::set_softkey_mask_dimension_info(softKeyMaskDimensions);
 		}
@@ -1741,8 +1772,24 @@ void ServerMainComponent::save_settings()
 
 #ifdef JUCE_WINDOWS
 		hardwareSettings.setProperty("TouCANSerial", static_cast<int>(std::static_pointer_cast<isobus::TouCANPlugin>(parentCANDrivers.at(2))->get_serial_number()), nullptr);
+		if (parentCANDrivers.size() > 4)
+		{
+			hardwareSettings.setProperty("UDP_Server_IP", String(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->get_server_ip()), nullptr);
+			hardwareSettings.setProperty("UDP_Server_Port", std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(4))->get_server_port(), nullptr);
+		}
+#elif defined(JUCE_MAC)
+		if (parentCANDrivers.size() > 1)
+		{
+			hardwareSettings.setProperty("UDP_Server_IP", String(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_ip()), nullptr);
+			hardwareSettings.setProperty("UDP_Server_Port", std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_port(), nullptr);
+		}
 #elif JUCE_LINUX
 		hardwareSettings.setProperty("SocketCANInterface", String(std::static_pointer_cast<isobus::SocketCANInterface>(parentCANDrivers.at(0))->get_device_name()), nullptr);
+		if (parentCANDrivers.size() > 1)
+		{
+			hardwareSettings.setProperty("UDP_Server_IP", String(std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_ip()), nullptr);
+			hardwareSettings.setProperty("UDP_Server_Port", std::static_pointer_cast<isobus::UDPCANPlugin>(parentCANDrivers.at(1))->get_server_port(), nullptr);
+		}
 #endif
 
 		if (0xFFFFFFFF != hardwareDriverIndex)

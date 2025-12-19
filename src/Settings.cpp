@@ -5,6 +5,8 @@
 *******************************************************************************/
 #include "Settings.hpp"
 
+#include "ServerMainComponent.hpp"
+
 Settings::Settings()
 {
 	m_settings = std::make_shared<ValueTree>("Settings");
@@ -16,9 +18,7 @@ Settings::~Settings()
 
 bool Settings::load_settings()
 {
-	auto lDefaultSaveLocation = File::getSpecialLocation(File::userApplicationDataDirectory);
-	String lDataDirectoryPath = (lDefaultSaveLocation.getFullPathName().toStdString() + "/Open-Agriculture");
-	File dataDirectory(lDataDirectoryPath);
+	File dataDirectory(ServerMainComponent::getAppDataDir());
 	bool lCanLoadSettings = false;
 
 	if (dataDirectory.exists() && dataDirectory.isDirectory())
@@ -32,7 +32,7 @@ bool Settings::load_settings()
 
 	if (lCanLoadSettings)
 	{
-		String lFilePath = (lDefaultSaveLocation.getFullPathName().toStdString() + "/Open-Agriculture/" + "vt_settings.xml");
+		String lFilePath = (ServerMainComponent::getAppDataDir() + File::getSeparatorString() + "vt_settings.xml");
 		File settingsFile = File(lFilePath);
 
 		if (settingsFile.existsAsFile())
@@ -48,14 +48,28 @@ bool Settings::load_settings()
 
 				while (child.isValid())
 				{
-					if (Identifier("Hardware") == child.getType() && !child.getProperty("VT_Number").isVoid())
+					if (Identifier("Hardware") == child.getType())
 					{
-						m_vtNumber = static_cast<std::uint8_t>(static_cast<int>(child.getProperty("VT_Number")));
-						if (m_vtNumber == 0 || m_vtNumber > 32)
+						if (!child.getProperty("VT_Number").isVoid())
 						{
-							m_vtNumber = 1;
+							m_vtNumber = static_cast<std::uint8_t>(static_cast<int>(child.getProperty("VT_Number")));
+							if (m_vtNumber == 0 || m_vtNumber > 32)
+							{
+								m_vtNumber = 1;
+							}
 						}
-						break;
+						if (!child.getProperty("UDP_Server_IP").isVoid())
+						{
+							m_udpServerIP = child.getProperty("UDP_Server_IP").toString().toStdString();
+						}
+						if (!child.getProperty("UDP_Server_Port").isVoid())
+						{
+							m_udpServerPort = static_cast<int>(child.getProperty("UDP_Server_Port"));
+							if (m_udpServerPort <= 0 || m_udpServerPort > 65535)
+							{
+								m_udpServerPort = 20000;
+							}
+						}
 					}
 					index++;
 					child = m_settings->getChild(index);
@@ -76,4 +90,14 @@ std::shared_ptr<ValueTree> Settings::settingsValueTree()
 int Settings::vt_number() const
 {
 	return m_vtNumber;
+}
+
+std::string Settings::udp_server_ip() const
+{
+	return m_udpServerIP;
+}
+
+int Settings::udp_server_port() const
+{
+	return m_udpServerPort;
 }

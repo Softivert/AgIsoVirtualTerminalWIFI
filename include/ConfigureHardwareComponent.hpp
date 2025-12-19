@@ -9,6 +9,18 @@
 #ifndef CONFIGURE_HARDWARE_COMPONENT_HPP
 #define CONFIGURE_HARDWARE_COMPONENT_HPP
 
+// On Windows, include winsock2.h before any JUCE headers to avoid conflicts
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+
 #include "isobus/hardware_integration/can_hardware_interface.hpp"
 
 #include <JuceHeader.h>
@@ -28,6 +40,8 @@ private:
 	ComboBox hardwareInterfaceSelector;
 	TextEditor socketCANNameEditor;
 	TextEditor touCANSerialEditor;
+	TextEditor udpServerIPEditor;
+	TextEditor udpServerPortEditor;
 	TextButton okButton;
 	std::vector<std::shared_ptr<isobus::CANHardwarePlugin>> &parentCANDrivers;
 

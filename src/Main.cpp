@@ -7,6 +7,7 @@
 
 #include "Main.hpp"
 #include "Settings.hpp"
+#include "UDPCANPlugin.hpp"
 #include "git.h"
 
 AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int vtNumberCmdLineArg) :
@@ -15,6 +16,9 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int v
                  DocumentWindow::allButtons)
 {
 	int vtNumber = vtNumberCmdLineArg;
+	Settings settings;
+	bool settingsLoaded = settings.load_settings();
+	
 #ifdef JUCE_WINDOWS
 	canDrivers.push_back(std::make_shared<isobus::PCANBasicWindowsPlugin>(static_cast<WORD>(PCAN_USBBUS1)));
 #ifdef ISOBUS_WINDOWSINNOMAKERUSB2CAN_AVAILABLE
@@ -24,10 +28,13 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int v
 #endif
 	canDrivers.push_back(std::make_shared<isobus::TouCANPlugin>(static_cast<std::int16_t>(0), 0));
 	canDrivers.push_back(std::make_shared<isobus::SysTecWindowsPlugin>());
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>(settings.udp_server_ip(), settings.udp_server_port()));
 #elif defined(JUCE_MAC)
 	canDrivers.push_back(std::make_shared<isobus::MacCANPCANPlugin>(PCAN_USBBUS1));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>(settings.udp_server_ip(), settings.udp_server_port()));
 #else
 	canDrivers.push_back(std::make_shared<isobus::SocketCANInterface>("can0"));
+	canDrivers.push_back(std::make_shared<isobus::UDPCANPlugin>(settings.udp_server_ip(), settings.udp_server_port()));
 #endif
 
 	jassert(!canDrivers.empty()); // You need some kind of CAN interface to run this program!
@@ -43,8 +50,7 @@ AgISOVirtualTerminalApplication::MainWindow::MainWindow(juce::String name, int v
 #endif
 	isobus::NAME serverNAME(0);
 
-	Settings settings;
-	if (!settings.load_settings())
+	if (!settingsLoaded)
 	{
 		{
 			isobus::CANStackLogger::info("Config file not found, using defaults.");

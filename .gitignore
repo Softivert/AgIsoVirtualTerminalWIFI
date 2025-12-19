@@ -48,3 +48,6 @@ CMakeFiles
 
 *.orig
 *.rej
+
+# CodeQL analysis files
+_codeql_detected_source_root
