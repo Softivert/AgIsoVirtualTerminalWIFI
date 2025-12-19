@@ -170,66 +170,6 @@ cmake -S . -B build -Wno-dev
 cmake --build build --target package --config Release
 ```
 
-## UDP/Cannelloni Support
-
-AgIsoVirtualTerminal now supports UDP-based CAN communication compatible with **cannelloni**, enabling wireless connectivity to CAN equipment via a Raspberry Pi or similar gateway device.
-
-### Architecture
-
-```
-[CAN Equipment] ↔ [Raspberry Pi + cannelloni] ↔ [UDP/WiFi] ↔ [Windows/Mac/Linux + AgIsoVirtualTerminal]
-```
-
-### Setup with Raspberry Pi + Cannelloni
-
-1. **On Raspberry Pi**, install and configure cannelloni:
-   ```bash
-   # Install dependencies
-   sudo apt-get update
-   sudo apt-get install can-utils git cmake build-essential
-   
-   # Setup CAN interface (adjust for your hardware)
-   sudo ip link set can0 type can bitrate 250000
-   sudo ip link set up can0
-   
-   # Install cannelloni
-   git clone https://github.com/mguentner/cannelloni.git
-   cd cannelloni
-   mkdir build && cd build
-   cmake ..
-   make
-   sudo make install
-   
-   # Run cannelloni (replace 192.168.1.50 with your Windows/Mac/Linux IP)
-   cannelloni -I can0 -R 192.168.1.50 -r 20000 -l 20000
-   ```
-
-2. **On Windows/Mac/Linux tablet**, configure UDP settings in AgIsoVirtualTerminal:
-   - Launch AgIsoVirtualTerminal
-   - Go to **Menu → Configure → CAN Hardware**
-   - **Windows**: Select "UDP CAN" from the dropdown and enter the settings below
-   - **Mac/Linux**: Enter the settings in the UDP fields
-   - Enter Raspberry Pi IP address (e.g., `192.168.1.100`)
-   - Enter UDP port (default: `20000`)
-   - Click **OK** to save settings
-
-3. Start the CAN interface and you should now be connected via UDP!
-
-### Technical Details
-
-- **Protocol**: UDP (connectionless, optimized for real-time communication)
-- **Default Port**: 20000 (cannelloni standard)
-- **Frame Format**: Cannelloni-compatible (Big Endian CAN ID, DLC, Data)
-- **Platforms**: Windows, macOS, Linux
-
-### Troubleshooting UDP Connection
-
-* Ensure the Raspberry Pi and your device are on the same network
-* Check firewall settings allow UDP traffic on port 20000
-* Verify cannelloni is running on the Raspberry Pi
-* Test connectivity with `ping` between devices
-* Check CAN interface is up: `ip link show can0`
-
 ## Troubleshooting
 
 * On OSX, if you get an error about `libPCBUSB` when trying to run the program, you'll need to allow the file in System Preferences -> Security & Privacy. This is due to our inclusion of the Mac port of the PCAN driver, and isn't something we can control.

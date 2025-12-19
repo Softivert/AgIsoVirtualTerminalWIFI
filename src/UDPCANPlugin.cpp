@@ -1,262 +1,221 @@
-/*******************************************************************************
-** @file       UDPCANPlugin.cpp
-** @author     The Open-Agriculture Developers
-** @copyright  The Open-Agriculture Developers
-*******************************************************************************/
+//================================================================================================
+/// @file UDPCANPlugin.cpp
+///
+/// @brief Implementation of the UDP CAN plugin for cannelloni protocol
+/// @author Open-Agriculture Contributors
+///
+/// @copyright 2024 The Open-Agriculture Contributors
+//================================================================================================
 #include "UDPCANPlugin.hpp"
 #include "isobus/isobus/can_stack_logger.hpp"
-#include "isobus/utility/system_timing.hpp"
+
 #include <cstring>
-#include <chrono>
 
-#ifndef _WIN32
-#include <fcntl.h>
-#include <errno.h>
-#endif
-
-namespace isobus
+UDPCANPlugin::UDPCANPlugin(const std::string &serverIP, int serverPort) :
+  serverIP(serverIP),
+  serverPort(serverPort),
+  running(false)
 {
-	UDPCANPlugin::UDPCANPlugin(const std::string &serverIP, int serverPort) :
-	  serverIP(serverIP), serverPort(serverPort), socketFD(-1), isRunning(false), isOpen(false)
+}
+
+UDPCANPlugin::~UDPCANPlugin()
+{
+	close();
+}
+
+bool UDPCANPlugin::open()
+{
+	if (running.load())
 	{
-#ifdef _WIN32
-		int wsaResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		if (wsaResult != 0)
-		{
-			CANStackLogger::error("[UDP CAN Plugin] WSAStartup failed with error: " + std::to_string(wsaResult));
-		}
-#endif
-	}
-
-	UDPCANPlugin::~UDPCANPlugin()
-	{
-		close();
-#ifdef _WIN32
-		WSACleanup();
-#endif
-	}
-
-	bool UDPCANPlugin::get_is_valid() const
-	{
-		return isOpen.load() && (socketFD >= 0);
-	}
-
-	void UDPCANPlugin::open()
-	{
-		if (isOpen.load())
-			return;
-
-		// Create UDP socket
-#ifdef _WIN32
-		socketFD = static_cast<int>(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
-#else
-		socketFD = socket(AF_INET, SOCK_DGRAM, 0);
-#endif
-
-		if (socketFD < 0)
-		{
-			CANStackLogger::error("[UDP CAN Plugin] Failed to create socket");
-			return;
-		}
-
-#ifdef _WIN32
-		// Set socket to non-blocking mode on Windows
-		u_long mode = 1;
-		ioctlsocket(socketFD, FIONBIO, &mode);
-#else
-		// Set socket to non-blocking mode on Unix
-		int flags = fcntl(socketFD, F_GETFL, 0);
-		fcntl(socketFD, F_SETFL, flags | O_NONBLOCK);
-#endif
-
-		// Configure server address
-		memset(&serverAddress, 0, sizeof(serverAddress));
-		serverAddress.sin_family = AF_INET;
-		serverAddress.sin_port = htons(static_cast<uint16_t>(serverPort));
-		inet_pton(AF_INET, serverIP.c_str(), &serverAddress.sin_addr);
-
-		isOpen.store(true);
-		isRunning.store(true);
-
-		// Start receive thread
-		receiveThread = std::thread(&UDPCANPlugin::receive_thread_function, this);
-
-		CANStackLogger::info("[UDP CAN Plugin] Connected to " + serverIP + ":" + std::to_string(serverPort));
-	}
-
-	void UDPCANPlugin::close()
-	{
-		if (!isOpen.load())
-			return;
-
-		isRunning.store(false);
-		isOpen.store(false);
-
-		if (receiveThread.joinable())
-			receiveThread.join();
-
-#ifdef _WIN32
-		closesocket(socketFD);
-#else
-		::close(socketFD);
-#endif
-		socketFD = -1;
-
-		CANStackLogger::info("[UDP CAN Plugin] Disconnected");
-	}
-
-	bool UDPCANPlugin::write_frame(const isobus::CANMessageFrame &canFrame)
-	{
-		if (!get_is_valid())
-			return false;
-
-		// Validate data length to prevent buffer overflow
-		if (canFrame.dataLength > 8)
-		{
-			CANStackLogger::error("[UDP CAN Plugin] Invalid CAN frame data length: " + std::to_string(canFrame.dataLength));
-			return false;
-		}
-
-		// Cannelloni format: [ID (4 bytes BE)] [DLC (1 byte)] [Data (0-8 bytes)]
-		uint8_t buffer[13];
-
-		// CAN ID (Big Endian)
-		buffer[0] = (canFrame.identifier >> 24) & 0xFF;
-		buffer[1] = (canFrame.identifier >> 16) & 0xFF;
-		buffer[2] = (canFrame.identifier >> 8) & 0xFF;
-		buffer[3] = canFrame.identifier & 0xFF;
-
-		// DLC
-		buffer[4] = canFrame.dataLength;
-
-		// Data
-		memcpy(&buffer[5], canFrame.data, canFrame.dataLength);
-
-		int totalLength = 5 + canFrame.dataLength;
-		int sentBytes = sendto(socketFD, reinterpret_cast<const char *>(buffer), totalLength, 0,
-		                       reinterpret_cast<struct sockaddr *>(&serverAddress), sizeof(serverAddress));
-
-		if (sentBytes != totalLength)
-		{
-			CANStackLogger::warn("[UDP CAN Plugin] Failed to send frame");
-			return false;
-		}
-
+		isobus::CANStackLogger::warn("[UDP CAN] Plugin is already open.");
 		return true;
 	}
 
-	bool UDPCANPlugin::read_frame(isobus::CANMessageFrame &canFrame)
+	socket = std::make_unique<juce::DatagramSocket>();
+	
+	// Bind to any local port for receiving
+	if (!socket->bindToPort(0))
 	{
-		std::lock_guard<std::mutex> lock(queueMutex);
-
-		if (!receiveQueue.empty())
-		{
-			canFrame = receiveQueue.front();
-			receiveQueue.pop();
-			return true;
-		}
-
+		isobus::CANStackLogger::error("[UDP CAN] Failed to bind socket to local port.");
+		socket.reset();
 		return false;
 	}
 
-	void UDPCANPlugin::receive_thread_function()
+	running.store(true);
+	
+	// Start the receive thread
+	receiveThread = std::make_unique<std::thread>(&UDPCANPlugin::receive_thread_function, this);
+
+	isobus::CANStackLogger::info("[UDP CAN] Plugin opened successfully. Target: " + serverIP + ":" + std::to_string(serverPort));
+	return true;
+}
+
+bool UDPCANPlugin::close()
+{
+	if (!running.load())
 	{
-		uint8_t buffer[13];
-		struct sockaddr_in senderAddress;
-		socklen_t senderAddressLen = sizeof(senderAddress);
+		return true;
+	}
 
-		while (isRunning.load())
+	running.store(false);
+
+	// Wait for the receive thread to finish
+	if (receiveThread && receiveThread->joinable())
+	{
+		receiveThread->join();
+	}
+
+	socket.reset();
+	
+	juce::ScopedLock lock(frameLock);
+	receiveQueue.clear();
+
+	isobus::CANStackLogger::info("[UDP CAN] Plugin closed.");
+	return true;
+}
+
+bool UDPCANPlugin::get_is_valid() const
+{
+	return running.load() && socket != nullptr;
+}
+
+bool UDPCANPlugin::read_frame(isobus::CANMessageFrame &canFrame)
+{
+	juce::ScopedLock lock(frameLock);
+	
+	if (receiveQueue.empty())
+	{
+		return false;
+	}
+
+	canFrame = receiveQueue.front();
+	receiveQueue.erase(receiveQueue.begin());
+	return true;
+}
+
+bool UDPCANPlugin::write_frame(const isobus::CANMessageFrame &canFrame)
+{
+	if (!get_is_valid())
+	{
+		return false;
+	}
+
+	CanFrame frame;
+	std::memset(&frame, 0, sizeof(CanFrame));
+
+	// Convert isobus::CANMessageFrame to CanFrame
+	frame.can_id = canFrame.identifier;
+	
+	// Set extended frame flag if needed
+	if (canFrame.isExtendedFrame)
+	{
+		frame.can_id |= 0x80000000; // CAN_EFF_FLAG
+	}
+
+	frame.can_dlc = canFrame.dataLength;
+	
+	if (canFrame.dataLength > 8)
+	{
+		isobus::CANStackLogger::warn("[UDP CAN] Frame data length exceeds 8 bytes, truncating.");
+		frame.can_dlc = 8;
+	}
+
+	std::memcpy(frame.data, canFrame.data, frame.can_dlc);
+
+	// Send the frame via UDP
+	int bytesSent = socket->write(serverIP, serverPort, &frame, sizeof(CanFrame));
+	
+	if (bytesSent != sizeof(CanFrame))
+	{
+		isobus::CANStackLogger::error("[UDP CAN] Failed to send frame. Bytes sent: " + std::to_string(bytesSent));
+		return false;
+	}
+
+	return true;
+}
+
+void UDPCANPlugin::reconfigure(const std::string &serverIP, int serverPort)
+{
+	bool wasRunning = running.load();
+	
+	if (wasRunning)
+	{
+		close();
+	}
+
+	this->serverIP = serverIP;
+	this->serverPort = serverPort;
+
+	if (wasRunning)
+	{
+		open();
+	}
+}
+
+std::string UDPCANPlugin::get_server_ip() const
+{
+	return serverIP;
+}
+
+int UDPCANPlugin::get_server_port() const
+{
+	return serverPort;
+}
+
+void UDPCANPlugin::receive_thread_function()
+{
+	isobus::CANStackLogger::info("[UDP CAN] Receive thread started.");
+
+	char buffer[sizeof(CanFrame)];
+	
+	while (running.load())
+	{
+		// Use a timeout to allow checking the running flag periodically
+		int ready = socket->waitUntilReady(true, 100); // 100ms timeout
+		
+		if (ready < 0)
 		{
-			int receivedBytes = recvfrom(socketFD, reinterpret_cast<char *>(buffer), sizeof(buffer), 0,
-			                             reinterpret_cast<struct sockaddr *>(&senderAddress), &senderAddressLen);
+			isobus::CANStackLogger::error("[UDP CAN] Socket error in receive thread.");
+			break;
+		}
+		
+		if (ready == 0)
+		{
+			// Timeout, continue to check running flag
+			continue;
+		}
 
-			if (receivedBytes >= 5)
+		juce::String senderIP;
+		int senderPort = 0;
+		int bytesRead = socket->read(buffer, sizeof(CanFrame), false, senderIP, senderPort);
+
+		if (bytesRead == sizeof(CanFrame))
+		{
+			// Use memcpy to safely extract frame data without alignment issues
+			CanFrame frame;
+			std::memcpy(&frame, buffer, sizeof(CanFrame));
+			
+			isobus::CANMessageFrame canFrame;
+			canFrame.identifier = frame.can_id & 0x1FFFFFFF; // Mask out flags
+			canFrame.isExtendedFrame = (frame.can_id & 0x80000000) != 0; // CAN_EFF_FLAG
+			canFrame.dataLength = frame.can_dlc;
+			
+			if (canFrame.dataLength > 8)
 			{
-				isobus::CANMessageFrame frame;
-
-				// Parse CAN ID (Big Endian)
-				frame.identifier = (static_cast<uint32_t>(buffer[0]) << 24) |
-				                   (static_cast<uint32_t>(buffer[1]) << 16) |
-				                   (static_cast<uint32_t>(buffer[2]) << 8) |
-				                   (static_cast<uint32_t>(buffer[3]));
-
-				// Parse DLC
-				frame.dataLength = buffer[4];
-				if (frame.dataLength > 8)
-					frame.dataLength = 8;
-
-				// Validate we received enough bytes for the claimed data length
-				if (receivedBytes < 5 + frame.dataLength)
-				{
-					CANStackLogger::warn("[UDP CAN Plugin] Received incomplete frame, discarding");
-					continue;
-				}
-
-				// Parse Data
-				memcpy(frame.data, &buffer[5], frame.dataLength);
-
-				frame.isExtendedFrame = (frame.identifier > 0x7FF);
-				frame.channel = 0;
-				frame.timestamp_us = isobus::SystemTiming::get_timestamp_us();
-
-				// Push frame to queue
-				{
-					std::lock_guard<std::mutex> lock(queueMutex);
-					receiveQueue.push(frame);
-				}
+				canFrame.dataLength = 8;
 			}
-			else if (receivedBytes < 0)
-			{
-#ifdef _WIN32
-				int error = WSAGetLastError();
-				if (error != WSAEWOULDBLOCK)
-				{
-					// Real error occurred
-					std::this_thread::sleep_for(std::chrono::milliseconds(1));
-				}
-				else
-				{
-					// No data available, sleep briefly
-					std::this_thread::sleep_for(std::chrono::milliseconds(1));
-				}
-#else
-				if (errno != EAGAIN && errno != EWOULDBLOCK)
-				{
-					// Real error occurred
-					std::this_thread::sleep_for(std::chrono::milliseconds(1));
-				}
-				else
-				{
-					// No data available, sleep briefly
-					std::this_thread::sleep_for(std::chrono::milliseconds(1));
-				}
-#endif
-			}
+
+			std::memcpy(canFrame.data, frame.data, canFrame.dataLength);
+			canFrame.timestamp_us = juce::Time::currentTimeMillis() * 1000; // Convert to microseconds
+
+			juce::ScopedLock lock(frameLock);
+			receiveQueue.push_back(canFrame);
+		}
+		else if (bytesRead > 0)
+		{
+			isobus::CANStackLogger::warn("[UDP CAN] Received incomplete frame. Bytes: " + std::to_string(bytesRead));
 		}
 	}
 
-	void UDPCANPlugin::set_server_ip(const std::string &ip)
-	{
-		serverIP = ip;
-	}
-
-	void UDPCANPlugin::set_server_port(int port)
-	{
-		serverPort = port;
-	}
-
-	std::string UDPCANPlugin::get_server_ip() const
-	{
-		return serverIP;
-	}
-
-	int UDPCANPlugin::get_server_port() const
-	{
-		return serverPort;
-	}
-
-	std::uint8_t UDPCANPlugin::get_number_of_channels() const
-	{
-		return 1;
-	}
+	isobus::CANStackLogger::info("[UDP CAN] Receive thread stopped.");
 }

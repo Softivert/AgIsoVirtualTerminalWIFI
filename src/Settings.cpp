@@ -5,8 +5,6 @@
 *******************************************************************************/
 #include "Settings.hpp"
 
-#include "ServerMainComponent.hpp"
-
 Settings::Settings()
 {
 	m_settings = std::make_shared<ValueTree>("Settings");
@@ -18,7 +16,9 @@ Settings::~Settings()
 
 bool Settings::load_settings()
 {
-	File dataDirectory(ServerMainComponent::getAppDataDir());
+	auto lDefaultSaveLocation = File::getSpecialLocation(File::userApplicationDataDirectory);
+	String lDataDirectoryPath = (lDefaultSaveLocation.getFullPathName().toStdString() + "/Open-Agriculture");
+	File dataDirectory(lDataDirectoryPath);
 	bool lCanLoadSettings = false;
 
 	if (dataDirectory.exists() && dataDirectory.isDirectory())
@@ -32,7 +32,7 @@ bool Settings::load_settings()
 
 	if (lCanLoadSettings)
 	{
-		String lFilePath = (ServerMainComponent::getAppDataDir() + File::getSeparatorString() + "vt_settings.xml");
+		String lFilePath = (lDefaultSaveLocation.getFullPathName().toStdString() + "/Open-Agriculture/" + "vt_settings.xml");
 		File settingsFile = File(lFilePath);
 
 		if (settingsFile.existsAsFile())
@@ -58,6 +58,8 @@ bool Settings::load_settings()
 								m_vtNumber = 1;
 							}
 						}
+						
+						// Load UDP settings
 						if (!child.getProperty("UDP_Server_IP").isVoid())
 						{
 							m_udpServerIP = child.getProperty("UDP_Server_IP").toString().toStdString();
@@ -70,6 +72,7 @@ bool Settings::load_settings()
 								m_udpServerPort = 20000;
 							}
 						}
+						break;
 					}
 					index++;
 					child = m_settings->getChild(index);
@@ -97,7 +100,17 @@ std::string Settings::udp_server_ip() const
 	return m_udpServerIP;
 }
 
+void Settings::set_udp_server_ip(const std::string &ip)
+{
+	m_udpServerIP = ip;
+}
+
 int Settings::udp_server_port() const
 {
 	return m_udpServerPort;
+}
+
+void Settings::set_udp_server_port(int port)
+{
+	m_udpServerPort = port;
 }

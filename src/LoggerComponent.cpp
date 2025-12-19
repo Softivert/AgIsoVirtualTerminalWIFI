@@ -8,19 +8,15 @@
 //================================================================================================
 #include "LoggerComponent.hpp"
 
-#include "ServerMainComponent.hpp"
-
 #include "Main.hpp"
 
 LoggerComponent::LoggerComponent() :
-  FileLogger(File(ServerMainComponent::getAppDataDir() + "/AgISOVirtualTerminalLog.txt"),
+  FileLogger(File(File::getSpecialLocation(File::userApplicationDataDirectory).getFullPathName() + "/Open-Agriculture/AgISOVirtualTerminalLog.txt"),
              "Starting " + AgISOVirtualTerminalApplication::getApplicationNameWithBuildInfo(),
              1024000)
 {
 	auto bounds = getLocalBounds();
 	setBounds(10, 10, bounds.getWidth() - 10, bounds.getHeight() - 10);
-
-	startPos = getLogFile().getSize();
 }
 
 void LoggerComponent::paint(Graphics &g)
@@ -92,9 +88,4 @@ void LoggerComponent::sink_CAN_stack_log(LoggingLevel level, const std::string &
 	setSize(bounds.getWidth(), newSize);
 	repaint();
 	logMessage(logText);
-}
-
-std::uint64_t LoggerComponent::initialPos() const
-{
-	return startPos;
 }

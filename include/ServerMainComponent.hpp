@@ -24,9 +24,7 @@ public:
 	ServerMainComponent(std::shared_ptr<isobus::InternalControlFunction> serverControlFunction,
 	                    std::vector<std::shared_ptr<isobus::CANHardwarePlugin>> &canDrivers,
 	                    std::shared_ptr<ValueTree> settings,
-	                    const std::string &canLogPath_,
-	                    std::uint8_t vtNumberArg = 0,
-	                    std::string screenCaptureDir = "");
+	                    std::uint8_t vtNumberArg = 0);
 	~ServerMainComponent() override;
 
 	bool get_is_enough_memory(std::uint32_t requestedMemory) const override;
@@ -123,9 +121,6 @@ public:
 
 	void identify_vt() override;
 
-	void screen_capture(std::uint8_t item, std::uint8_t path, std::shared_ptr<isobus::ControlFunction> requestor) override;
-
-	static std::string getAppDataDir();
 	/**
    * @brief minimum_height
    * @return the height of the softkey- or the datamask size, whichever is bigger
@@ -143,7 +138,6 @@ private:
 		ConfigureLogging,
 		ConfigureShortcuts,
 		GenerateLogPackage,
-		GenerateLogPackageFromCurrentSession,
 		ClearISOData,
 		ConfigureCANHardware,
 		StartStop,
@@ -165,7 +159,7 @@ private:
 	struct HeldButtonData
 	{
 		HeldButtonData(std::shared_ptr<isobus::VirtualTerminalServerManagedWorkingSet> workingSet, std::uint16_t objectID, std::uint16_t maskObjectID, std::uint8_t keyCode, bool isSoftKey);
-		bool operator==(const HeldButtonData &other) const;
+		bool operator==(const HeldButtonData &other);
 		std::shared_ptr<isobus::VirtualTerminalServerManagedWorkingSet> associatedWorkingSet;
 		std::uint32_t timestamp_ms;
 		std::uint16_t buttonObjectID;
@@ -179,7 +173,6 @@ private:
 	std::size_t number_of_iop_files_in_directory(std::filesystem::path path);
 
 	bool timeAndDateCallback(isobus::TimeDateInterface::TimeAndDate &timeAndDateToPopulate);
-	void transferred_object_pool_parse_start(std::shared_ptr<isobus::VirtualTerminalServerManagedWorkingSet> &workingSet) const override;
 
 	void on_change_active_mask_callback(std::shared_ptr<isobus::VirtualTerminalServerManagedWorkingSet> affectedWorkingSet, std::uint16_t workingSet, std::uint16_t newMask);
 	void repaint_data_and_soft_key_mask();
@@ -188,8 +181,6 @@ private:
 	void clear_iso_data();
 
 	const std::string ISO_DATA_PATH = "iso_data";
-	std::string screenCaptureDirArgument = "";
-	std::string canLogPath;
 
 	juce::ApplicationCommandManager mCommandManager;
 	WorkingSetSelectorComponent workingSetSelector;
@@ -208,7 +199,6 @@ private:
 	std::shared_ptr<isobus::ControlFunction> alarmAckKeyWs;
 	std::vector<std::shared_ptr<isobus::CANHardwarePlugin>> &parentCANDrivers;
 	std::vector<HeldButtonData> heldButtons;
-	std::set<std::string> loadedNames;
 	std::uint32_t alarmAckKeyMaskId = isobus::NULL_OBJECT_ID;
 	int alarmAckKeyCode = juce::KeyPress::escapeKey;
 	std::uint8_t vtNumber = 1; // VT number in the range of 1-32
@@ -218,7 +208,6 @@ private:
 	bool autostart = false;
 	bool hasStartBeenCalled = false;
 	bool alarmAckKeyPressed = false;
-	bool saveIopBeforeParse = false;
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ServerMainComponent)
 };

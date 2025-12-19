@@ -12,8 +12,12 @@ public:
 	bool load_settings();
 	std::shared_ptr<ValueTree> settingsValueTree();
 	int vt_number() const;
+	
+	// UDP CAN settings
 	std::string udp_server_ip() const;
+	void set_udp_server_ip(const std::string &ip);
 	int udp_server_port() const;
+	void set_udp_server_port(int port);
 
 private:
 	std::shared_ptr<ValueTree> m_settings;
